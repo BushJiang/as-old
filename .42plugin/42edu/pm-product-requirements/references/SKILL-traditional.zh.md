@@ -8,7 +8,7 @@ generates:
   - spec-product-requirements.md
 ---
 
-> **AI智能体注意**：本技能生成供AI/Agent（特别是Claude Code）使用的规约文档。生成规约前，必须从`real.md`和`cog.md`加载上下文。如果这些文件不存在，请先调用`00-meta`技能创建它们。
+> **AI智能体注意**：本技能生成供AI/Agent（特别是Claude Code）使用的规约文档。生成规约前，必须从`real.md`和`cog.md`加载上下文。如果这些文件不存在，请先调用`meta-42cog`技能创建它们。
 
 ## 前置条件
 
@@ -21,7 +21,7 @@ generates:
 
 如果任一文件缺失，请执行：
 ```
-调用技能：00-meta
+调用技能：meta-42cog
 ```
 
 ### 上下文加载

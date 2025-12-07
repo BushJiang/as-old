@@ -25,7 +25,7 @@ Before using this skill, ensure the following foundation documents exist:
 1. **real.md** - Reality Constraints Document
 2. **cog.md** - Cognitive Model Document
 
-If these documents do not exist, invoke the **00-meta** skill first to generate them.
+If these documents do not exist, invoke the **meta-42cog** skill first to generate them.
 
 ### Pre-execution Checklist
 

@@ -8,7 +8,7 @@ generates:
   - spec-system-architecture.md
 ---
 
-> **AI 智能体注意事项**：此技能生成供 AI/智能体使用的规约文档（特别是 Claude Code）。在生成规约之前，你必须从 `real.md` 和 `cog.md` 加载上下文。如果这些文件不存在，请先调用 `00-meta` 技能创建它们。
+> **AI 智能体注意事项**：此技能生成供 AI/智能体使用的规约文档（特别是 Claude Code）。在生成规约之前，你必须从 `real.md` 和 `cog.md` 加载上下文。如果这些文件不存在，请先调用 `meta-42cog` 技能创建它们。
 
 ## 前置条件
 
@@ -21,7 +21,7 @@ generates:
 
 如果任一文件缺失，请执行：
 ```
-调用技能：00-meta
+调用技能：meta-42cog
 ```
 
 ### 上下文加载

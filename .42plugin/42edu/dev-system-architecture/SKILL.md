@@ -8,7 +8,7 @@ generates:
   - spec-system-architecture.md
 ---
 
-> **Note for AI Agents**: This skill generates specification documents for AI/Agent consumption (especially Claude Code). Before generating specs, you MUST load context from `real.md` and `cog.md`. If these files don't exist, invoke the `00-meta` skill first to create them.
+> **Note for AI Agents**: This skill generates specification documents for AI/Agent consumption (especially Claude Code). Before generating specs, you MUST load context from `real.md` and `cog.md`. If these files don't exist, invoke the `meta-42cog` skill first to create them.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ Before using this skill, verify:
 
 If either file is missing, execute:
 ```
-Invoke skill: 00-meta
+Invoke skill: meta-42cog
 ```
 
 ### Context Loading
