@@ -1,0 +1,25 @@
+# fork 配置，读取仓库主干 .cnb/settings.yml 配置
+fork:
+  # 定制 fork 按钮
+  button:
+    # 按钮描述
+    description: 你的仓库不错，现在是我的了
+    # 鼠标悬浮在按钮上显示的图片
+    # 1.用仓库中当前分支的图片，填写相对仓库根目录的路径，如 .cnb/fork-hover.png;
+    # 2.使用当前域名下的文件 raw 地址，比如：https://cnb.cool/my/test/-/git/raw/main/.cnb/fork-hover.png
+    # 图片最大 10MB
+    hoverImage: .cnb/fork-hover.png
+
+# 抄作业 按钮配置，读取仓库主干 .cnb/settings.yml 配置
+# 仓库首页默认没有此按钮
+# 抄作业按钮出现条件：仓库首页右方简介增加 example 标签（推荐可作为模板或例子的仓库增加此按钮）
+copyRepo:
+  # 定制 抄作业 按钮
+  button:
+    # 按钮描述
+    description: 你的仓库不错，现在是我的了
+    # 鼠标悬浮在按钮上显示的图片
+    # 1.用仓库中当前分支的图片，填写相对仓库根目录的路径，如 .cnb/copy-hover.png;
+    # 2.使用当前域名下的文件 raw 地址，比如：https://cnb.cool/my/test/-/git/raw/main/.cnb/copy-hover.png
+    # 图片最大 10MB
+    hoverImage: .cnb/copy-hover.png
