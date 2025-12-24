@@ -1,0 +1,23 @@
+{
+  "skills": {
+    "enabled": true,
+    "allowUserInvokedSkills": true,
+    "skillsDirectory": ".claude/skills",
+    "skills": [
+      "design-ui-design",
+      "dev-coding",
+      "dev-database-design",
+      "dev-quality-assurance",
+      "dev-system-architecture",
+      "meta-42cog",
+      "pm-product-requirements",
+      "pm-user-story"
+    ]
+  },
+  "hooks": {
+    "enabled": true
+  },
+  "mcp": {
+    "enabled": true
+  }
+}
