@@ -1,130 +1,117 @@
-# AI原生项目模板
+# 如故 (as old)
 
-这是一个基于认知敏捷法(42COG)的AI原生项目初始化模板。
+为内向者打造的社交匹配应用，帮助您找到真正灵魂共鸣的朋友。
 
-## 目录结构
+## ✨ 特性
 
-```
-projectname/
-├── .42cog/              # 认知敏捷法核心文件
-│   ├── meta/            # 项目元信息
-│   ├── real/            # 现实约束
-│   ├── cog/             # 认知模型
-│   ├── spec/            # 规约文档
-│   ├── work/            # 工作记录
-│   └── others/          # 其他文档
-├── .42plugin/           # 活水插件技能库 ⭐
-│   └── 42edu/           # 教育版11个技能（技能安装位置）
-│       ├── user-simulation/           # 用户模拟使用
-│       ├── user-admin/                # 管理员功能
-│       ├── pm-product-requirements/   # 产品需求文档
-│       ├── pm-user-story/             # 用户故事
-│       ├── dev-system-architecture/   # 系统架构设计
-│       ├── dev-database-design/       # 数据库设计
-│       ├── dev-coding/                # 实际编码
-│       ├── dev-quality-assurance/     # 质量保证
-│       ├── dev-deployment/            # 部署运维
-│       ├── design-ui-design/          # 交互设计
-│       └── design-graphic-design/     # 平面设计
-├── notes/               # 项目笔记和文档
-├── source/              # 原始素材和资源
-└── src/                 # 源代码目录（代码生成位置）⭐
-    ├── app/             # Next.js 应用目录
-    ├── components/      # React 组件
-    ├── lib/             # 工具库
-    └── ...              # 其他代码文件
+- 🎯 **智能匹配** - 基于兴趣、性格、地理位置的推荐算法
+- 💝 **功能独立** - 无需配置即可体验完整功能
+- 📱 **响应式设计** - 完美适配移动端、平板、桌面
+- 🎭 **演示模式** - 内置Mock数据，无需网络连接
+- 🔒 **隐私保护** - 本地数据存储，保护用户隐私
+
+## 🚀 技术栈
+
+- **框架**: Next.js 15 + React 19 + TypeScript
+- **样式**: Tailwind CSS v4 (OKLCH色彩空间)
+- **状态管理**: Zustand + localStorage
+- **UI组件**: shadcn/ui
+- **图标**: Lucide React
+
+## 🛠️ 快速开始
+
+### 安装依赖
+
+```bash
+npm install
 ```
 
-## 快速开始
+### 启动开发服务器
 
-1. **复制模板**
-   ```bash
-   cp -r project-template your-project-name
-   cd your-project-name
-   ```
-
-2. **初始化项目元信息**
-   编辑 `.42cog/meta/meta.md`，填写项目基本信息
-
-3. **定义现实约束**（推荐简明写法）
-   编辑 `.42cog/real/real.md`，列出项目的现实约束（最多7条）
-   ```xml
-   <real>
-   - 用户密码必须使用bcrypt加密存储
-   - 支付信息必须通过第三方支付网关处理
-   - 订单金额计算必须在服务端完成
-   </real>
-   ```
-
-4. **创建认知模型**（推荐简明写法）
-   编辑 `.42cog/cog/cog.md`，定义项目的核心实体和关系
-   ```xml
-   <cog>
-   本系统包括以下关键实体：
-   - user：用户
-   - product：商品
-   - order：订单
-   </cog>
-   ```
-
-5. **生成规约文档**
-   使用 `.42plugin/42edu/` 下的技能生成各类规约文档
-   > **技能位置**：所有技能安装在 `.42plugin/42edu/` 目录下
-
-6. **开始编码**
-   在 `src/` 目录下开发代码
-   > **代码目录**：实际生成的代码文件放在 `src/` 目录下
-
-## 认知敏捷法 (42COG)
-
-### RCSW 工作流
-
-```
-Real (现实约束) → Cog (认知模型) → Spec (规约文档) → Work (实际作品)
+```bash
+npm run dev
 ```
 
-### 11个核心技能
+访问 [http://localhost:4000](http://localhost:4000) 查看应用。
 
-**用户角色 (2个)**
-- user: 用户模拟使用
-- admin: 管理员功能
+### 构建生产版本
 
-**产品经理 (2个)**
-- pr: 产品需求文档
-- userstory: 用户故事
+```bash
+npm run build
+npm run start
+```
 
-**开发 (5个)**
-- sys: 系统架构设计
-- db: 数据库设计
-- code: 实际编码
-- qa: 质量保证
-- devops: 部署运维
+## 📁 项目结构
 
-**设计 (2个)**
-- ui: 交互设计
-- graphic: 平面设计
+```
+as-old/
+├── src/
+│   ├── app/                    # Next.js页面
+│   │   ├── page.tsx           # 首页（匹配发现）
+│   │   ├── profile/page.tsx   # 资料页
+│   │   ├── matches/page.tsx   # 匹配管理页
+│   │   └── settings/page.tsx  # 设置页
+│   ├── components/            # React组件
+│   │   ├── MatchCard.tsx     # 用户卡片
+│   │   ├── BottomNavigation.tsx # 底部导航
+│   │   └── ui/               # shadcn/ui基础组件
+│   ├── stores/               # Zustand状态管理
+│   │   ├── app-store.ts     # 应用状态
+│   │   ├── user-store.ts    # 用户数据
+│   │   └── filter-store.ts  # 筛选器状态
+│   ├── lib/                  # 工具函数
+│   │   ├── types.ts         # TypeScript类型
+│   │   ├── utils.ts         # 通用工具
+│   │   └── recommendation-engine.ts # 推荐算法
+│   └── data/mock/           # Mock数据
+├── .42cog/                  # 认知敏捷法文档
+│   ├── spec/design/         # 设计规格
+│   ├── spec/pm/             # 产品需求和用户故事
+│   └── spec/dev/            # 系统架构
+└── public/                  # 静态资源
+```
 
-## 使用建议
+## 🎨 设计系统
 
-1. **从现实出发**：先定义 `real.md`，明确项目的现实约束（推荐简明写法）
-2. **建立认知模型**：在 `cog.md` 中定义核心实体和关系（推荐简明写法）
-3. **按需生成规约**：根据项目阶段，使用 `.42plugin/42edu/` 下的技能生成规约文档
-4. **代码开发**：在 `src/` 目录下开发实际代码
-5. **持续迭代**：在 `work/` 目录记录工作日志，持续优化
+### 配色方案
 
-## 技术栈建议
+- **主色**: 蓝紫色系 (260°)
+- **辅助色**: 温暖橙色 (30°)
+- **中性色**: 柔和灰度
 
-- **语言**: TypeScript (首选)
-- **框架**: Next.js 15
-- **UI**: Tailwind CSS + shadcn/ui
-- **运行时**: Bun
-- **数据库**: PostgreSQL / Neon / Supabase
-- **ORM**: Drizzle ORM
-- **认证**: Better Auth
-- **AI**: Vercel AI SDK
+### 响应式断点
 
-## 更多资源
+- xs: < 480px (小型移动设备)
+- sm: 480-640px (标准移动设备)
+- md: 640-768px (平板设备)
+- lg: 768-1024px (小型桌面)
+- xl: 1024-1440px (标准桌面)
+- 2xl: > 1440px (大型桌面)
 
-- 认知敏捷法文档: https://github.com/42ailab/42cog
-- 活水插件平台: https://42plugin.com
-- 活水AI实验室: https://42ailab.com
+## 🧪 演示模式
+
+应用默认运行在演示模式，使用内置Mock数据：
+
+- **10个预设用户** - 包含完整资料和兴趣标签
+- **智能推荐算法** - 基于规则的匹配系统
+- **本地存储** - 所有数据保存在localStorage
+- **无需API** - 完全离线可用
+
+## 📖 文档
+
+- [UI设计规格](.42cog/spec/design/ui.spec.md) - 完整的前端实现方案
+- [产品需求文档](.42cog/spec/pm/pr.spec.md) - 功能需求和业务规则
+- [用户故事规格](.42cog/spec/pm/userstory.spec.md) - 28个最小故事
+- [系统架构文档](.42cog/spec/dev/sys.spec.md) - 技术架构和子系统
+
+## 🤝 贡献
+
+欢迎提交Issue和Pull Request来帮助改进项目！
+
+## 📄 许可证
+
+MIT License
+
+---
+
+**如故** - 寻找一见如故的朋友 💝
