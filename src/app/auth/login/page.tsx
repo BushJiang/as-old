@@ -3,11 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
+import { useUserStore } from "@/stores/user-store";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, register, checkUserExists } = useAuthStore();
+  const { reinitializeUser } = useUserStore();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,113 +32,117 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
-        router.push("/");
+      // 先检查用户是否存在
+      const userExists = checkUserExists(email);
+
+      if (userExists) {
+        // 用户存在，尝试登录
+        const loginSuccess = await login(email, password);
+
+        if (loginSuccess) {
+          reinitializeUser();
+          router.push("/");
+        } else {
+          setError("密码错误，请重试");
+        }
       } else {
-        setError("邮箱或密码错误");
+        // 用户不存在，自动注册
+        const registerSuccess = await register(email, password);
+
+        if (registerSuccess) {
+          router.push("/onboarding/profile");
+        } else {
+          setError("注册失败，请稍后重试");
+        }
       }
     } catch (err) {
-      setError("登录失败，请重试");
+      setError("操作失败，请重试");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    // 纯色背景，居中布局
-    <div className="min-h-screen flex items-center justify-center bg-white px-6 py-12">
-      {/* 容器：最大宽度，宽松的内边距 */}
-      <div className="w-full max-w-lg">
-        {/* 卡片：简洁设计 */}
-        <div className="bg-white rounded-2xl p-10">
-          {/* 标题区域 */}
-          <div className="text-center mb-10">
-            <h1 className="text-5xl font-bold text-black mb-4 tracking-wider leading-relaxed">
-              登录
-            </h1>
-            <p className="text-xl text-gray-600 tracking-wide leading-relaxed">
-              欢迎来到如故
-            </p>
-          </div>
-    
-          {/* 表单 */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-            {/* 邮箱输入 */}
-            <div>
-              <label className="text-2xl font-medium text-black block tracking-wide leading-relaxed">
-                邮箱地址
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-5 py-4 text-2xl border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-3 focus:ring-blue-500/20 focus:border-blue-600 bg-white tracking-wide leading-relaxed"
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-          
-            {/* 密码输入 */}
-            <div>
-              <label className="text-2xl font-medium text-black block tracking-wide leading-relaxed mb-3">
-                密码
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-5 py-4 text-2xl border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-3 focus:ring-blue-500/20 focus:border-blue-600 bg-white tracking-wide leading-relaxed"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          
-            {/* 错误提示 */}
-            {error && (
-              <div className="text-lg text-red-700 bg-red-50 border border-red-200 p-4 rounded-xl tracking-wide leading-relaxed">
-                {error}
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50/50 p-4">
+      {/* 样式参考：Card 宽度设置 */}
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <CardTitle>欢迎来到如故</CardTitle>
+          <CardDescription>
+            输入邮箱和密码登录，新用户将自动创建账号
+          </CardDescription>
+        </CardHeader>
+
+        {/* 样式参考：添加 p-6 pt-0 确保有左右内边距，且上方不留白 */}
+        <CardContent className="p-6 pt-0">
+          {/*
+             关键修改：给 form 添加 ID，因为提交按钮被移到了 Footer
+             使用 flex-col gap-6 保持内部元素间距一致
+          */}
+          <form id="auth-form" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-6">
+              {/* 邮箱输入组：样式参考 grid gap-2 */}
+              <div className="grid gap-2">
+                <Label htmlFor="email">邮箱</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
-            )}
 
-            {/* 登录按钮 */}
-            <Button
-              type="submit"
-              className="w-full h-14 text-2xl bg-blue-700 text-white rounded-full tracking-wide leading-relaxed"
-              disabled={loading}
-            >
-              {loading ? "登录中..." : "登录"}
-            </Button>
+              {/* 密码输入组：样式参考 grid gap-2 */}
+              <div className="grid gap-2">
+                <div className="flex items-center">
+                  <Label htmlFor="password">密码</Label>
+                  {/* 这里保留了 flex 布局，方便未来像参考代码一样添加"忘记密码"链接 */}
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="6位密码"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-            {/* 注册链接 */}
-            <div className="text-center pt-6 mb-20">
-              <span className="text-lg text-black tracking-wide leading-relaxed">
-                还没有账号？
-              </span>
-              <button
-                type="button"
-                onClick={() => router.push("/auth/register")}
-                className="text-lg text-blue-600 font-semibold ml-2 tracking-wide leading-relaxed "
-              >
-                立即注册
-              </button>
+              {/* 错误提示：保持原有逻辑，放入 gap 流中 */}
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-md">
+                  {error}
+                </div>
+              )}
+
+              {/* 测试账号提示：保持原有逻辑，放入 gap 流中 */}
+              <div className="text-xs text-gray-600 bg-blue-50 border border-blue-200 p-3 rounded-md text-center">
+                <p className="font-semibold mb-1">测试账号：</p>
+                <p>邮箱: test@example.com</p>
+                <p>密码: 123456</p>
+              </div>
             </div>
           </form>
+        </CardContent>
 
-          {/* 测试账号提示 */}
-          <div className="mt-16 p-6 bg-blue-50 border border-blue-200">
-            <p className="text-lg font-semibold text-blue-900 mb-3 tracking-wide leading-relaxed">
-              测试账号：
-            </p>
-            <p className="text-lg text-blue-800 tracking-wide leading-relaxed">
-              邮箱: test@example.com
-            </p>
-            <p className="text-lg text-blue-800 tracking-wide leading-relaxed">
-              密码: 123456
-            </p>
-          </div>
-        </div>
-      </div>
+        {/* 样式参考：Footer 布局，包含按钮 */}
+        <CardFooter className="flex-col gap-2">
+          {/*
+             关键修改：添加 form="auth-form" 属性
+             这允许按钮在 form 标签外部也能提交表单
+          */}
+          <Button
+            form="auth-form"
+            type="submit"
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? "处理中..." : "登录/注册"}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

@@ -6,16 +6,6 @@ export interface User {
   avatar: string
   bio: string
   interests: string[]
-  personalityTags: string[]
-  isOnline: boolean
-  lastSeen: string
-  // 新增字段
-  basicInfo: {
-    name: string
-    age: number
-    city: string
-    bio: string
-  }
   needs: string[]
   provide: string[]
 }
@@ -24,8 +14,6 @@ export interface FilterState {
   ageRange: [number, number]
   city: string | null
   interests: string[]
-  personalityTags: string[]
-  onlyOnline: boolean
   showMe: 'everyone' | 'men' | 'women'
 }
 
@@ -43,13 +31,15 @@ export interface AppState {
 export interface UserState {
   currentUser: User | null
   potentialMatches: User[]
-  likedMatches: User[]
+  wantToKnowMatches: User[]
   passedMatches: User[]
   updateProfile: (data: Partial<User>) => void
   addPotentialMatch: (user: User) => void
-  likeUser: (userId: string) => void
+  wantToKnowUser: (userId: string) => void
   passUser: (userId: string) => void
-  getMatchedUsers: () => User[]
+  getWantToKnowUsers: () => User[]
+  reinitializeUser: () => void
+  clearMatches: () => void
 }
 
 export interface FilterStateStore {
@@ -69,52 +59,22 @@ export const INTEREST_CATEGORIES = {
   '娱乐': ['动漫', '综艺', '直播', 'K歌', '桌游', '密室', '电影', '音乐'],
 } as const
 
-export const PERSONALITY_TAGS = [
-  '内向', '外向', '理性', '感性', '创新', '稳重', '幽默', '严肃',
-  '艺术', '技术宅', '文艺', '运动', '旅行', '美食', '宅', '社交',
-  '独立', '依赖', '乐观', '悲观', '现实', '理想', '温柔', '强势',
-  '细心', '粗心', '耐心', '急躁', '安静', '活泼', '严肃', '随和',
-] as const
-
 // 认证相关类型
 export interface AuthUser {
   id: string
   email: string
-  password: string
   hasCompletedProfile: boolean
 }
 
 export interface AuthState {
   isAuthenticated: boolean
   user: AuthUser | null
+  // mockUsers 是内部类型，包含密码用于验证
+  // 在实际项目中应该移到后端
+  mockUsers: Array<AuthUser & { password: string }>
+  checkUserExists: (email: string) => boolean
   login: (email: string, password: string) => Promise<boolean>
   register: (email: string, password: string) => Promise<boolean>
   logout: () => void
   completeProfile: () => void
-}
-
-// 匹配算法类型
-export type MatchType =
-  | 'similar_interests'     // 兴趣爱好相似
-  | 'mutual_needs'          // 相互满足需求
-  | 'mutual_provide'        // 相互提供
-  | 'deep_analysis'         // 深度分析
-
-export interface MatchRequest {
-  type: MatchType
-  userId: string
-  limit?: number
-}
-
-export interface MatchResult {
-  users: User[]
-  matchType: MatchType
-  total: number
-}
-
-// Milvus 向量数据库类型
-export interface MilvusConfig {
-  host: string
-  port: string
-  collectionName: string
 }

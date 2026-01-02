@@ -14,9 +14,7 @@
       "pm-user-story"
     ]
   },
-  "hooks": {
-    "enabled": true
-  },
+  "hooks": {},
   "mcp": {
     "enabled": true
   }

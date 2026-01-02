@@ -8,7 +8,7 @@ import { MOCK_USERS } from '@/data/mock/users'
 import { generateRecommendations, applyFilters } from '@/lib/recommendation-engine'
 
 export function MatchDiscovery() {
-  const { currentUser, potentialMatches, addPotentialMatch, likeUser, passUser } = useUserStore()
+  const { currentUser, potentialMatches, addPotentialMatch, wantToKnowUser, passUser } = useUserStore()
   const { filters } = useFilterStore()
   const [currentIndex, setCurrentIndex] = useState(0)
 
@@ -22,7 +22,7 @@ export function MatchDiscovery() {
   }, [currentUser, filters])
 
   const handleLike = (userId: string) => {
-    likeUser(userId)
+    wantToKnowUser(userId)
     setCurrentIndex(prev => prev + 1)
   }
 

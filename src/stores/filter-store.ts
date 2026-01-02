@@ -6,8 +6,6 @@ const DEFAULT_FILTERS: FilterState = {
   ageRange: [18, 50],  // 扩大年龄范围
   city: null,
   interests: [],       // 不限制兴趣
-  personalityTags: [], // 不限制性格
-  onlyOnline: false,   // 不限制在线状态
   showMe: 'everyone'
 }
 

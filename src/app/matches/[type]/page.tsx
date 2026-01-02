@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
 import { useUserStore } from '@/stores/user-store'
-import { searchUsers } from '@/lib/milvus'
-import type { User, MatchType } from '@/lib/types'
+import type { User } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, MapPin, Heart, RefreshCw } from 'lucide-react'
+
+type MatchType = 'similar_interests' | 'mutual_needs' | 'mutual_provide' | 'deep_analysis'
 
 export default function MatchPage() {
   const router = useRouter()
@@ -18,7 +19,7 @@ export default function MatchPage() {
   const type = params.type as MatchType
 
   const { isAuthenticated, user } = useAuthStore()
-  const { currentUser } = useUserStore()
+  const { currentUser, wantToKnowUser, passUser, potentialMatches } = useUserStore()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -29,13 +30,8 @@ export default function MatchPage() {
       return
     }
 
-    if (!user?.hasCompletedProfile) {
-      router.push('/onboarding')
-      return
-    }
-
     loadMatches()
-  }, [isAuthenticated, user, type, router])
+  }, [isAuthenticated, type, router])
 
   const loadMatches = async () => {
     if (!currentUser) return
@@ -44,13 +40,9 @@ export default function MatchPage() {
     setError('')
 
     try {
-      const result = await searchUsers({
-        type,
-        userId: currentUser.id,
-        limit: 4,
-      })
-
-      setUsers(result.users)
+      // 临时使用本地 store 中的 potentialMatches
+      // TODO: 后续接入 PostgreSQL + pgvector 后实现向量搜索
+      setUsers(potentialMatches.slice(0, 4))
     } catch (err) {
       setError('加载匹配失败，请重试')
       console.error('Match search error:', err)
@@ -98,10 +90,10 @@ export default function MatchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center">
       {/* 头部 */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4">
+      <header className="w-full bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -125,7 +117,7 @@ export default function MatchPage() {
       </header>
 
       {/* 主要内容 */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="w-full max-w-4xl px-4 py-8 flex flex-col items-center">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -155,22 +147,16 @@ export default function MatchPage() {
         ) : (
           <>
             {/* 用户卡片网格 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
               {users.map((matchedUser) => (
                 <Card key={matchedUser.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                   {/* 用户头像 */}
-                  <div className="relative h-48 bg-gradient-to-br from-blue-400 to-purple-500">
-                    <Avatar className="w-full h-full rounded-none">
-                      <AvatarImage src={matchedUser.avatar} alt={matchedUser.name} />
-                      <AvatarFallback className="w-full h-full rounded-none text-6xl text-white">
+                  <div className="relative h-48 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                    <Avatar className="w-24 h-24 border-4 border-white">
+                      <AvatarFallback className="text-3xl bg-white text-blue-600">
                         {matchedUser.name.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
-                    {matchedUser.isOnline && (
-                      <div className="absolute top-3 right-3">
-                        <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                      </div>
-                    )}
                   </div>
 
                   <CardContent className="p-4 space-y-3">
@@ -178,7 +164,7 @@ export default function MatchPage() {
                     <div>
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-lg text-gray-900">
-                          {matchedUser.name}, {matchedUser.age}
+                          {matchedUser.name}
                         </h3>
                       </div>
                       <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
@@ -246,25 +232,25 @@ export default function MatchPage() {
                     {/* 操作按钮 */}
                     <div className="flex gap-2 pt-2">
                       <Button
+                        size="sm"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        onClick={() => {
+                          wantToKnowUser(matchedUser.id)
+                          setUsers(users.filter(u => u.id !== matchedUser.id))
+                        }}
+                      >
+                        想认识
+                      </Button>
+                      <Button
                         variant="outline"
                         size="sm"
                         className="flex-1"
                         onClick={() => {
-                          // TODO: 实现跳过功能
-                          console.log('Skip user:', matchedUser.id)
+                          passUser(matchedUser.id)
+                          setUsers(users.filter(u => u.id !== matchedUser.id))
                         }}
                       >
                         跳过
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-blue-600 hover:bg-blue-700"
-                        onClick={() => {
-                          // TODO: 实现喜欢功能
-                          console.log('Like user:', matchedUser.id)
-                        }}
-                      >
-                        喜欢
                       </Button>
                     </div>
                   </CardContent>
@@ -273,7 +259,7 @@ export default function MatchPage() {
             </div>
 
             {/* 刷新按钮 */}
-            <div className="text-center mt-8">
+            <div className="text-center mt-8 w-full max-w-4xl">
               <Button
                 variant="outline"
                 onClick={loadMatches}

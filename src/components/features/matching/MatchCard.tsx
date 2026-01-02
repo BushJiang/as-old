@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ThumbsUp, ThumbsDown, MapPin } from 'lucide-react'
 import type { User } from '@/lib/types'
-import { formatLastSeen } from '@/lib/utils'
 import { useAppStore } from '@/stores/app-store'
 
 interface MatchCardProps {
@@ -23,14 +22,9 @@ export function MatchCard({ user, onLike, onPass }: MatchCardProps) {
           <AvatarImage src={user.avatar} alt={user.name} />
           <AvatarFallback className="text-4xl">{user.name[0]}</AvatarFallback>
         </Avatar>
-        {user.isOnline && (
-          <Badge className="absolute top-4 right-4 bg-green-500 hover:bg-green-600">
-            在线
-          </Badge>
-        )}
         {useAppStore.getState().useMockMode && (
           <Badge variant="secondary" className="absolute top-4 left-4">
-            🎭 演示模式
+            演示模式
           </Badge>
         )}
       </div>
@@ -64,6 +58,15 @@ export function MatchCard({ user, onLike, onPass }: MatchCardProps) {
       </CardContent>
       <CardFooter className="flex gap-3">
         <Button
+          variant="default"
+          size="lg"
+          className="flex-1 bg-blue-600 hover:bg-blue-700"
+          onClick={() => onLike(user.id)}
+        >
+          <ThumbsUp className="mr-2 h-5 w-5" />
+          想认识
+        </Button>
+        <Button
           variant="outline"
           size="lg"
           className="flex-1 hover:bg-gray-100"
@@ -71,15 +74,6 @@ export function MatchCard({ user, onLike, onPass }: MatchCardProps) {
         >
           <ThumbsDown className="mr-2 h-5 w-5" />
           跳过
-        </Button>
-        <Button
-          variant="default"
-          size="lg"
-          className="flex-1 bg-blue-600 hover:bg-blue-700"
-          onClick={() => onLike(user.id)}
-        >
-          <ThumbsUp className="mr-2 h-5 w-5" />
-          喜欢
         </Button>
       </CardFooter>
     </Card>
