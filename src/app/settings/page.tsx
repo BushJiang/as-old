@@ -6,7 +6,6 @@ import { useFilterStore } from '@/stores/filter-store'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { INTEREST_CATEGORIES } from '@/lib/types'
-import { BottomNavigation } from '@/components/features'
 
 export default function SettingsPage() {
   const { theme, setTheme, useMockMode, setMockMode } = useAppStore()
@@ -15,9 +14,13 @@ export default function SettingsPage() {
   const cities = ['北京', '上海', '深圳', '杭州', '广州', '成都', '西安', '南京', '武汉', '重庆']
 
   return (
-    <main className="min-h-screen flex flex-col pb-20">
-      <div className="p-6 space-y-6">
-        <h1 className="text-3xl font-bold">设置</h1>
+    <div className="min-h-screen bg-gray-50/50 p-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* 页面标题 */}
+        <div className="py-4">
+          <h1 className="text-3xl font-bold">设置</h1>
+          <p className="text-sm text-gray-600">管理您的应用偏好</p>
+        </div>
 
         <Card>
           <CardHeader>
@@ -150,7 +153,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
-      <BottomNavigation />
-    </main>
+    </div>
   )
 }

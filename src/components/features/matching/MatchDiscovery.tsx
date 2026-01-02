@@ -1,25 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { MatchCard } from './MatchCard'
 import { useUserStore } from '@/stores/user-store'
-import { useFilterStore } from '@/stores/filter-store'
-import { MOCK_USERS } from '@/data/mock/users'
-import { generateRecommendations, applyFilters } from '@/lib/recommendation-engine'
 
 export function MatchDiscovery() {
-  const { currentUser, potentialMatches, addPotentialMatch, wantToKnowUser, passUser } = useUserStore()
-  const { filters } = useFilterStore()
+  const { currentUser, potentialMatches, wantToKnowUser, passUser } = useUserStore()
   const [currentIndex, setCurrentIndex] = useState(0)
-
-  // 初始化潜在匹配
-  useEffect(() => {
-    if (potentialMatches.length === 0 && currentUser) {
-      const filteredUsers = MOCK_USERS.filter(user => applyFilters(user, filters))
-      const recommendations = generateRecommendations(currentUser, filteredUsers, 10)
-      recommendations.forEach(user => addPotentialMatch(user))
-    }
-  }, [currentUser, filters])
 
   const handleLike = (userId: string) => {
     wantToKnowUser(userId)

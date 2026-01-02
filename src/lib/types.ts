@@ -1,7 +1,10 @@
+export type Gender = 'male' | 'female' | 'other'
+
 export interface User {
   id: string
   name: string
   age: number
+  gender?: Gender
   city: string
   avatar: string
   bio: string
@@ -30,12 +33,15 @@ export interface AppState {
 
 export interface UserState {
   currentUser: User | null
+  userProfilesMap: Record<string, User>
   potentialMatches: User[]
   wantToKnowMatches: User[]
   passedMatches: User[]
   updateProfile: (data: Partial<User>) => void
   addPotentialMatch: (user: User) => void
   wantToKnowUser: (userId: string) => void
+  addToWantToKnow: (userId: string) => void
+  removeFromWantToKnow: (userId: string) => void
   passUser: (userId: string) => void
   getWantToKnowUsers: () => User[]
   reinitializeUser: () => void

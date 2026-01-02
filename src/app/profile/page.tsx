@@ -4,24 +4,25 @@ import { useUserStore } from '@/stores/user-store'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { MapPin, Edit } from 'lucide-react'
+import { MapPin, Edit, Heart } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { UserCard } from '@/components/features/user/UserCard'
 
 export default function ProfilePage() {
-  const { currentUser } = useUserStore()
+  const { currentUser, wantToKnowMatches, removeFromWantToKnow } = useUserStore()
   const router = useRouter()
 
   if (!currentUser) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
         <p className="text-gray-600">加载中...</p>
-      </main>
+      </div>
     )
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center">
-      <div className="p-6 space-y-6 max-w-2xl w-full">
+    <div className="min-h-screen bg-gray-50/50 p-4">
+      <div className="max-w-4xl mx-auto space-y-6 py-6">
         {/* 个人信息 */}
         <div className="space-y-6">
           {/* 个人信息卡片 */}
@@ -89,8 +90,33 @@ export default function ProfilePage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* 想认识的用户 - 始终显示这个区域 */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Heart className="h-5 w-5 text-red-500" />
+              想认识 ({wantToKnowMatches.length})
+            </h2>
+
+            {wantToKnowMatches.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <p>还没有想认识的用户</p>
+                <p className="text-sm mt-2">去首页发现匹配的朋友吧</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {wantToKnowMatches.map((user) => (
+                  <UserCard
+                    key={user.id}
+                    user={user}
+                    onRemove={() => removeFromWantToKnow(user.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

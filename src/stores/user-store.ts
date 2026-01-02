@@ -4,17 +4,23 @@ import type { User, UserState } from '@/lib/types'
 import { MOCK_USERS } from '@/data/mock/users'
 import { useAuthStore } from './auth-store'
 
+// 用户资料映射：按 userId 存储多个用户的资料
+interface UserProfilesMap {
+  [userId: string]: User
+}
+
 // 创建默认用户数据
 const createDefaultUser = (userId: string): User => ({
   id: userId,
   name: '测试账号',
   age: 26,
+  gender: undefined,
   city: '北京',
   avatar: '/avatars/default.svg',
   bio: '一句话介绍自己',
   interests: ['读书', '音乐', '电影', '咖啡'],
-  needs: ['深度对话', '精神交流', '理解与陪伴'],
-  provide: ['文学分享', '心理咨询', '咖啡文化'],
+  needs: ['深度对话', '精神交流'],
+  provide: ['文学分享', '心理咨询'],
 })
 
 // 获取潜在匹配用户（使用 mock 数据）
@@ -29,19 +35,32 @@ export const useUserStore = create<UserState>()(
       const authUser = useAuthStore.getState().user
       const userId = authUser?.id || '00000000-0000-0000-0000-000000000000'
 
+      // 初始化用户资料映射（从 localStorage 恢复或创建新的）
+      const userProfilesMap: UserProfilesMap = {}
+
       // 初始化当前用户
       const currentUser = createDefaultUser(userId)
       const recommendations = getMockRecommendations()
 
       return {
         currentUser,
+        userProfilesMap,
         potentialMatches: recommendations,
         wantToKnowMatches: [],
         passedMatches: [],
 
-        updateProfile: (data) => set((s) => ({
-          currentUser: s.currentUser ? { ...s.currentUser, ...data } as User : data as User
-        })),
+        updateProfile: (data) => set((s) => {
+          const updatedUser = s.currentUser ? { ...s.currentUser, ...data } as User : data as User
+          // 同时更新资料映射
+          const newProfilesMap = { ...s.userProfilesMap }
+          if (updatedUser.id) {
+            newProfilesMap[updatedUser.id] = updatedUser
+          }
+          return {
+            currentUser: updatedUser,
+            userProfilesMap: newProfilesMap
+          }
+        }),
 
         addPotentialMatch: (user) => set((s) => ({
           potentialMatches: [user, ...s.potentialMatches]
@@ -58,6 +77,28 @@ export const useUserStore = create<UserState>()(
           }
         },
 
+        addToWantToKnow: (userId) => {
+          const { potentialMatches, wantToKnowMatches } = get()
+          // 先检查是否已经在想认识列表中
+          if (wantToKnowMatches.some(u => u.id === userId)) {
+            return
+          }
+          // 从潜在匹配中找到用户
+          const user = potentialMatches.find(u => u.id === userId)
+          if (user) {
+            set({
+              wantToKnowMatches: [user, ...wantToKnowMatches]
+            })
+          }
+        },
+
+        removeFromWantToKnow: (userId) => {
+          const { wantToKnowMatches } = get()
+          set({
+            wantToKnowMatches: wantToKnowMatches.filter(u => u.id !== userId)
+          })
+        },
+
         passUser: (userId) => set((s) => {
           const user = s.potentialMatches.find(u => u.id === userId)
           return {
@@ -72,11 +113,17 @@ export const useUserStore = create<UserState>()(
         reinitializeUser: () => {
           const authUser = useAuthStore.getState().user
           const userId = authUser?.id || '00000000-0000-0000-0000-000000000000'
-          const newUser = createDefaultUser(userId)
+
+          // 先检查资料映射中是否已有该用户的资料
+          const { userProfilesMap } = get()
+          const existingProfile = userProfilesMap[userId]
+
+          // 如果有保存的资料，使用保存的；否则创建新的默认用户
+          const currentUser = existingProfile || createDefaultUser(userId)
           const recommendations = getMockRecommendations()
 
           set({
-            currentUser: newUser,
+            currentUser,
             potentialMatches: recommendations,
             wantToKnowMatches: [],
             passedMatches: [],
