@@ -166,11 +166,11 @@ export function ProfileFormFields({
     }
 
     const ageNum = parseInt(formData.age);
-    if (isNaN(ageNum) || ageNum < 18 || ageNum > 100) {
+    if (isNaN(ageNum) || ageNum < 1 || ageNum > 100) {
       return {
         valid: false,
         errorField: "age",
-        errorMessage: "请输入有效的年龄（18-100）",
+        errorMessage: "请输入有效的年龄（1-100）",
       };
     }
 
@@ -239,8 +239,8 @@ export function ProfileFormFields({
           id="age"
           ref={ageRef}
           type="number"
-          placeholder="18-100"
-          min="18"
+          placeholder="请输入年龄"
+          min="1"
           max="100"
           value={formData.age}
           onChange={(e) => handleChange("age", e.target.value)}
