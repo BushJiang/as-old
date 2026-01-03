@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
 import { useUserStore } from '@/stores/user-store'
@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ProfileFormFields, type ProfileFormData } from '@/components/features/user/ProfileFormFields'
+import { ProfileFormFields, type ProfileFormData } from '@/components/user/ProfileFormFields'
 
 export default function ProfileSetupPage() {
   const router = useRouter()
@@ -22,7 +22,6 @@ export default function ProfileSetupPage() {
   const [formData, setFormData] = useState<ProfileFormData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const formRef = useRef<{ validateAndGetData: () => ReturnType<ProfileFormFields['prototype']['validateAndGetData']> }>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,8 +68,8 @@ export default function ProfileSetupPage() {
     } catch (err) {
       // 如果 API 不存在，暂时使用本地状态
       const ageNum = parseInt(formData.age)
-      if (isNaN(ageNum) || ageNum < 18 || ageNum > 100) {
-        setError('请输入有效的年龄（18-100）')
+      if (isNaN(ageNum) || ageNum < 1 || ageNum > 100) {
+        setError('请输入有效的年龄（1-100）')
         return
       }
 
@@ -85,7 +84,7 @@ export default function ProfileSetupPage() {
         needs: formData.needsText.split('\n').map(n => n.trim()).filter(n => n),
         provide: formData.provideText.split('\n').map(p => p.trim()).filter(p => p),
         avatar: formData.avatarUrl,
-        gender: '',
+        gender: formData.gender || undefined,
       })
       router.push('/')
     } finally {
@@ -94,8 +93,9 @@ export default function ProfileSetupPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50/50 p-4">
-      <Card className="w-full max-w-sm">
+    <div className="min-h-screen bg-gray-50/50 p-4">
+      <div className="flex items-center justify-center">
+        <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>完善个人信息</CardTitle>
           <CardDescription>
@@ -124,6 +124,7 @@ export default function ProfileSetupPage() {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }

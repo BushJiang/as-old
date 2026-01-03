@@ -41,13 +41,16 @@ export async function findSimilarInterests(
   limit: number = 10
 ): Promise<MatchResult[]> {
   // 获取当前用户的兴趣向量
-  const myInterests = await db.query.userEmbeddings.findMany({
-    where: and(
-      eq(userEmbeddings.userId, currentUserId),
-      eq(userEmbeddings.embeddingType, 'interest'),
-      eq(userEmbeddings.embeddingGenerationStatus, 'completed')
-    ),
-  })
+  const myInterests = await db
+    .select()
+    .from(userEmbeddings)
+    .where(
+      and(
+        eq(userEmbeddings.userId, currentUserId),
+        eq(userEmbeddings.embeddingType, 'interest'),
+        eq(userEmbeddings.embeddingGenerationStatus, 'completed')
+      )
+    )
 
   if (myInterests.length === 0) {
     return []
@@ -98,13 +101,16 @@ export async function findSimilarInterests(
 
   // 获取匹配用户的详细信息
   const matchedUserIds = sortedMatches.map(m => m[0])
-  const profiles = await db.query.userProfiles.findMany({
-    where: sql`${userProfiles.userId} = ANY(${matchedUserIds})`,
-  })
+  const profiles = await db
+    .select()
+    .from(userProfiles)
+    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
 
-  const userProfile = await db.query.userProfiles.findFirst({
-    where: eq(userProfiles.userId, currentUserId),
-  })
+  const [userProfile] = await db
+    .select()
+    .from(userProfiles)
+    .where(eq(userProfiles.userId, currentUserId))
+    .limit(1)
 
   // 构建结果
   const results: MatchResult[] = []
@@ -146,13 +152,16 @@ export async function findMutualNeeds(
   limit: number = 10
 ): Promise<MatchResult[]> {
   // 获取当前用户的需求向量
-  const myNeeds = await db.query.userEmbeddings.findMany({
-    where: and(
-      eq(userEmbeddings.userId, currentUserId),
-      eq(userEmbeddings.embeddingType, 'need'),
-      eq(userEmbeddings.embeddingGenerationStatus, 'completed')
-    ),
-  })
+  const myNeeds = await db
+    .select()
+    .from(userEmbeddings)
+    .where(
+      and(
+        eq(userEmbeddings.userId, currentUserId),
+        eq(userEmbeddings.embeddingType, 'need'),
+        eq(userEmbeddings.embeddingGenerationStatus, 'completed')
+      )
+    )
 
   if (myNeeds.length === 0) {
     return []
@@ -206,9 +215,10 @@ export async function findMutualNeeds(
 
   // 获取匹配用户的详细信息
   const matchedUserIds = sortedMatches.map(m => m[0])
-  const profiles = await db.query.userProfiles.findMany({
-    where: sql`${userProfiles.userId} = ANY(${matchedUserIds})`,
-  })
+  const profiles = await db
+    .select()
+    .from(userProfiles)
+    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
 
   // 构建结果
   const results: MatchResult[] = []

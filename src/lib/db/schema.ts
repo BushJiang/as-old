@@ -43,7 +43,7 @@ const vector = customType<{
     // 将数组转换为 PostgreSQL vector 格式: "[0.1, -0.2, 0.3, ...]"
     return `[${value.join(',')}]`
   },
-  fromDriver(value: string): number[] {
+  fromDriver(value: unknown): number[] {
     // 将 PostgreSQL vector 格式转换为数组
     if (typeof value === 'string') {
       // 移除方括号并分割
@@ -52,7 +52,7 @@ const vector = customType<{
         .split(',')
         .map(v => parseFloat(v))
     }
-    return value as unknown as number[]
+    return value as number[]
   },
 })
 
@@ -81,9 +81,9 @@ export const userProfiles = pgTable(
 
     // 兴趣、需求、提供（JSONB 数组格式）
     // 用户注册时通过多行文本输入，后端分割成数组
-    interests: jsonb('interests').$type<string[]>().notNull().default('[]'),
-    needs: jsonb('needs').$type<string[]>().notNull().default('[]'),
-    provide: jsonb('provide').$type<string[]>().notNull().default('[]'),
+    interests: jsonb('interests').$type<string[]>().notNull().default([]),
+    needs: jsonb('needs').$type<string[]>().notNull().default([]),
+    provide: jsonb('provide').$type<string[]>().notNull().default([]),
 
     // 向量嵌入 (bge-m3: 1024维)
     // 用于 AI 匹配推荐
@@ -149,14 +149,14 @@ export const userPreferences = pgTable(
     ageRangeMax: integer('age_range_max').default(100),
     preferredCities: jsonb('preferred_cities')
       .$type<string[]>()
-      .default('[]'),
+      .default([]),
     preferredInterests: jsonb('preferred_interests')
       .$type<string[]>()
-      .default('[]'),
+      .default([]),
 
     // 显示设置
     showMe: varchar('show_me', { length: 20 })
-      .default('everyone') // 'everyone' | 'matches' | 'none'
+      .default('everyone'), // 'everyone' | 'matches' | 'none'
 
     // 通知设置
     emailNotifications: boolean('email_notifications').default(true),
@@ -190,7 +190,7 @@ export const matches = pgTable(
 
     // 匹配类型
     matchType: varchar('match_type', { length: 20 })
-      .notNull() // 'want_to_know' | 'passed' | 'mutual' | 'blocked'
+      .notNull(), // 'want_to_know' | 'passed' | 'mutual' | 'blocked'
 
     // 匹配度分数 (0-1)
     similarityScore: jsonb('similarity_score').$type<number>(),
@@ -209,7 +209,7 @@ export const matches = pgTable(
       }),
 
     // 元数据
-    metadata: jsonb('metadata').default('{}'),
+    metadata: jsonb('metadata').default({}),
 
     // 时间戳
     createdAt: timestamp('created_at').defaultNow(),
@@ -259,11 +259,11 @@ export const icebreakers = pgTable(
     // 用户收藏的话题
     favoriteTopicIds: jsonb('favorite_topic_ids')
       .$type<number[]>()
-      .default('[]'),
+      .default([]),
 
     // 生成状态
     generationStatus: varchar('generation_status', { length: 20 })
-      .notNull() // 'pending' | 'completed' | 'failed'
+      .notNull(), // 'pending' | 'completed' | 'failed'
 
     // 时间戳
     createdAt: timestamp('created_at').defaultNow(),

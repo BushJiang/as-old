@@ -194,7 +194,7 @@ export function ProfileFormFields({
   const focusField = (fieldName: string) => {
     const refMap: Record<
       string,
-      React.RefObject<HTMLInputElement | HTMLTextAreaElement>
+      React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>
     > = {
       name: nameRef,
       age: ageRef,
@@ -336,6 +336,3 @@ export function ProfileFormFields({
     </>
   );
 }
-
-// 导出验证方法供父组件使用
-export type { ProfileFormData };

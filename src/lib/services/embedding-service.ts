@@ -92,13 +92,17 @@ export async function generateUserInterestsEmbeddings(
 
     try {
       // 检查是否已存在
-      const existing = await db.query.userEmbeddings.findFirst({
-        where: and(
-          eq(userEmbeddings.userId, userId),
-          eq(userEmbeddings.embeddingType, 'interest'),
-          eq(userEmbeddings.sourceIndex, i)
-        ),
-      })
+      const [existing] = await db
+        .select()
+        .from(userEmbeddings)
+        .where(
+          and(
+            eq(userEmbeddings.userId, userId),
+            eq(userEmbeddings.embeddingType, 'interest'),
+            eq(userEmbeddings.sourceIndex, i)
+          )
+        )
+        .limit(1)
 
       if (existing) {
         // 更新现有记录
@@ -146,13 +150,17 @@ export async function generateUserNeedsEmbeddings(
     if (!need) continue
 
     try {
-      const existing = await db.query.userEmbeddings.findFirst({
-        where: and(
-          eq(userEmbeddings.userId, userId),
-          eq(userEmbeddings.embeddingType, 'need'),
-          eq(userEmbeddings.sourceIndex, i)
-        ),
-      })
+      const [existing] = await db
+        .select()
+        .from(userEmbeddings)
+        .where(
+          and(
+            eq(userEmbeddings.userId, userId),
+            eq(userEmbeddings.embeddingType, 'need'),
+            eq(userEmbeddings.sourceIndex, i)
+          )
+        )
+        .limit(1)
 
       if (existing) {
         await db.update(userEmbeddings)
@@ -198,13 +206,17 @@ export async function generateUserProvidesEmbeddings(
     if (!provide) continue
 
     try {
-      const existing = await db.query.userEmbeddings.findFirst({
-        where: and(
-          eq(userEmbeddings.userId, userId),
-          eq(userEmbeddings.embeddingType, 'provide'),
-          eq(userEmbeddings.sourceIndex, i)
-        ),
-      })
+      const [existing] = await db
+        .select()
+        .from(userEmbeddings)
+        .where(
+          and(
+            eq(userEmbeddings.userId, userId),
+            eq(userEmbeddings.embeddingType, 'provide'),
+            eq(userEmbeddings.sourceIndex, i)
+          )
+        )
+        .limit(1)
 
       if (existing) {
         await db.update(userEmbeddings)

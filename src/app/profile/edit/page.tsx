@@ -14,7 +14,7 @@ import {
 import {
   ProfileFormFields,
   type ProfileFormData,
-} from "@/components/features/user/ProfileFormFields";
+} from "@/components/user/ProfileFormFields";
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -80,43 +80,44 @@ export default function ProfileEditPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50/50 p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>编辑个人信息</CardTitle>
-          <CardDescription>修改你的个人信息</CardDescription>
-        </CardHeader>
-        <CardContent className="p-6 pt-0">
-          <form id="profile-form" onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-4">
-              <ProfileFormFields
-                initialData={currentUser}
-                userId={currentUser.id}
-                onChange={setFormData}
-                error={error}
-              />
-            </div>
+    <div className="min-h-screen bg-gray-50/50 p-4">
+      <div className="flex items-center justify-center">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle>修改资料</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 pt-0">
+            <form id="profile-form" onSubmit={handleSubmit}>
+              <div className="flex flex-col gap-4">
+                <ProfileFormFields
+                  initialData={currentUser}
+                  userId={currentUser.id}
+                  onChange={setFormData}
+                  error={error}
+                />
+              </div>
 
-            <div className="flex flex-col gap-2 mt-4">
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loading || !formData}
-              >
-                {loading ? "保存中..." : "保存"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => router.push("/profile")}
-              >
-                取消
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              <div className="flex flex-col gap-2 mt-4">
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading || !formData}
+                >
+                  {loading ? "保存中..." : "保存"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => router.push("/profile")}
+                >
+                  取消
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

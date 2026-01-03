@@ -99,6 +99,31 @@ export const useUserStore = create<UserState>()(
           })
         },
 
+        toggleWantToKnow: (userId) => {
+          const { potentialMatches, wantToKnowMatches } = get()
+          // 检查是否已在收藏列表中
+          const existing = wantToKnowMatches.find(u => u.id === userId)
+          if (existing) {
+            // 已在收藏列表中，移除
+            set({
+              wantToKnowMatches: wantToKnowMatches.filter(u => u.id !== userId)
+            })
+          } else {
+            // 不在收藏列表中，添加
+            const user = potentialMatches.find(u => u.id === userId)
+            if (user) {
+              set({
+                wantToKnowMatches: [user, ...wantToKnowMatches]
+              })
+            }
+          }
+        },
+
+        isWantToKnow: (userId) => {
+          const { wantToKnowMatches } = get()
+          return wantToKnowMatches.some(u => u.id === userId)
+        },
+
         passUser: (userId) => set((s) => {
           const user = s.potentialMatches.find(u => u.id === userId)
           return {

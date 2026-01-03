@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { NavigationWrapper } from "@/components/features/navigation/NavigationWrapper";
+import { NavigationWrapper } from "@/components/navigation/NavigationWrapper";
 
 export const metadata: Metadata = {
   title: "如故 - 寻找一见如故的朋友",

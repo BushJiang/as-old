@@ -5,12 +5,9 @@
  * Drizzle ORM 作为数据库操作层
  */
 
-import { drizzle } from '@neondatabase/serverless'
-import { neon, neonConfig } from '@neondatabase/serverless'
-import ws from 'ws'
-
-// 设置 WebSocket 用于 Neon 无服务器连接
-neonConfig.webSocketConstructor = ws
+import { drizzle } from 'drizzle-orm/neon-http'
+import { neon } from '@neondatabase/serverless'
+import * as schema from './schema'
 
 // 导出 schema 表定义
 export * from './schema'
@@ -24,17 +21,17 @@ function createDbConnection() {
   }
 
   const sql = neon(url)
-  return drizzle(sql)
+  return drizzle(sql, { schema })
 }
 
 // 单例数据库连接
-let db: ReturnType<typeof drizzle> | null = null
+let dbInstance: ReturnType<typeof drizzle> | null = null
 
 export function getDb() {
-  if (!db) {
-    db = createDbConnection()
+  if (!dbInstance) {
+    dbInstance = createDbConnection()
   }
-  return db
+  return dbInstance
 }
 
 // 默认导出数据库连接

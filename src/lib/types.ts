@@ -42,6 +42,8 @@ export interface UserState {
   wantToKnowUser: (userId: string) => void
   addToWantToKnow: (userId: string) => void
   removeFromWantToKnow: (userId: string) => void
+  toggleWantToKnow: (userId: string) => void
+  isWantToKnow: (userId: string) => boolean
   passUser: (userId: string) => void
   getWantToKnowUsers: () => User[]
   reinitializeUser: () => void
