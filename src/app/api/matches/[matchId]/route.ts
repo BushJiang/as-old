@@ -120,14 +120,41 @@ export async function POST(
         }
 
         // 创建匹配记录
-        const [newMatch] = await db
-          .insert(matches)
-          .values({
-            userId: userId,
-            matchedUserId: matchId,
-            matchType,
-          })
-          .returning()
+        let newMatch
+        try {
+          ;[newMatch] = await db
+            .insert(matches)
+            .values({
+              userId: userId,
+              matchedUserId: matchId,
+              matchType,
+            })
+            .returning()
+        } catch (insertError: any) {
+          // 捕获唯一约束错误（可能是竞态条件导致的重复插入）
+          if (insertError.code === '23505' || insertError.message?.includes('duplicate key')) {
+            // 记录已存在，尝试查询现有记录
+            const [existing] = await db
+              .select()
+              .from(matches)
+              .where(
+                and(
+                  eq(matches.userId, userId),
+                  eq(matches.matchedUserId, matchId)
+                )
+              )
+              .limit(1)
+
+            if (existing) {
+              return NextResponse.json(
+                { error: "已经对此用户执行过操作" },
+                { status: 409 }
+              )
+            }
+          }
+          // 其他错误继续抛出
+          throw insertError
+        }
 
         // 记录到匹配历史
         await db.insert(matchHistory).values({

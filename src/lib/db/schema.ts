@@ -44,15 +44,25 @@ const vector = customType<{
     return `[${value.join(',')}]`
   },
   fromDriver(value: unknown): number[] {
-    // 将 PostgreSQL vector 格式转换为数组
-    if (typeof value === 'string') {
-      // 移除方括号并分割
-      return value
-        .slice(1, -1)
-        .split(',')
-        .map(v => parseFloat(v))
+    // PostgreSQL pgvector 通过 @neondatabase/serverless 驱动返回的是数组格式
+    if (Array.isArray(value)) {
+      return value as number[]
     }
-    return value as number[]
+    // 如果是字符串格式，进行解析
+    if (typeof value === 'string') {
+      // 处理带方括号的字符串 "[0.1, -0.2, 0.3]"
+      if (value.startsWith('[')) {
+        return value
+          .slice(1, -1)
+          .split(',')
+          .map(v => parseFloat(v.trim()))
+      }
+      // 处理不带方括号的字符串 "0.1, -0.2, 0.3"
+      return value.split(',').map(v => parseFloat(v.trim()))
+    }
+    // 默认返回空数组（应该不会到这里）
+    console.warn('无法解析向量值:', value)
+    return []
   },
 })
 

@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { MatchCard } from "@/components/user/MatchCard";
 import type { User } from "@/lib/types";
 // 👇 这里引入图标，如果你想换图标，可以在 lucid.dev 找新图标名字并在这里引入
-import { Heart, Target, Handshake, Compass } from "lucide-react";
+import { Heart, Target, Handshake, Compass, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type MatchType =
@@ -47,7 +47,7 @@ const FEATURES = [
     iconBg: "bg-blue-100",
   },
   {
-    title: "互助合作",
+    title: "助人为乐",
     desc: "发挥你的价值",
     type: "mutual-provide" as MatchType,
     icon: Handshake,
@@ -71,17 +71,19 @@ const FEATURES = [
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const { currentUser, potentialMatches, toggleWantToKnow, isWantToKnow, fetchRecommendations } =
+  const { currentUser, potentialMatches, potentialMatchesWithDetails, toggleWantToKnow, isWantToKnow, fetchRecommendations } =
     useUserStore();
 
   // --- 状态管理区域 ---
   const [isMounted, setIsMounted] = useState(false);
   const [selectedMatchType, setSelectedMatchType] =
-    useState<MatchType>("similar-interests"); // 当前选中的模式
+    useState<MatchType | null>(null); // 当前选中的模式，初始为 null
   const [matchedUser, setMatchedUser] = useState<User | null>(null); // 当前展示的那个用户
-  const [selectedFeature, setSelectedFeature] = useState(0); // 当前选中的按钮索引(0-3)
+  const [matchedUserDetail, setMatchedUserDetail] = useState<any>(null); // 当前展示的匹配详情
+  const [selectedFeature, setSelectedFeature] = useState<number | null>(null); // 当前选中的按钮索引，初始为 null
   const [userIndex, setUserIndex] = useState(0); // 当前浏览到第几个人
   const [cardKey, setCardKey] = useState(0); // 用于强制刷新卡片动画的 key
+  const [isLoading, setIsLoading] = useState(false); // 是否正在加载匹配数据
 
   useEffect(() => {
     setIsMounted(true);
@@ -94,17 +96,22 @@ export default function Home() {
     }
   }, [isMounted, isAuthenticated, router]);
 
-  // 从 API 获取匹配数据
+  // 从 API 获取匹配数据（只在选择了匹配模式后）
   useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      fetchRecommendations({ mode: selectedMatchType, limit: 20 });
+    if (isAuthenticated && currentUser && selectedMatchType) {
+      setIsLoading(true);
+      fetchRecommendations({ mode: selectedMatchType, limit: 20 })
+        .finally(() => {
+          setIsLoading(false);
+        });
     }
   }, [selectedMatchType, isAuthenticated, currentUser, fetchRecommendations]);
 
   // 🤖 核心逻辑：根据选中的模式，计算该显示哪个用户
   // 如果你想修改匹配算法，主要看这里
   useEffect(() => {
-    if (isAuthenticated && currentUser && potentialMatches.length > 0) {
+    // 只在数据加载完成后才计算显示的用户
+    if (isAuthenticated && currentUser && potentialMatches.length > 0 && selectedMatchType && !isLoading) {
       const indexMap: Record<MatchType, number> = {
         "similar-interests": 0,
         "mutual-needs": 1,
@@ -115,7 +122,9 @@ export default function Home() {
       const baseIndex = indexMap[selectedMatchType];
       const actualIndex = (baseIndex + userIndex) % potentialMatches.length;
       const user = potentialMatches[actualIndex] || potentialMatches[0];
+      const userDetail = potentialMatchesWithDetails[actualIndex] || potentialMatchesWithDetails[0];
       setMatchedUser(user || null);
+      setMatchedUserDetail(userDetail || null);
     }
   }, [
     selectedMatchType,
@@ -123,6 +132,8 @@ export default function Home() {
     isAuthenticated,
     currentUser,
     potentialMatches,
+    potentialMatchesWithDetails,
+    isLoading,
   ]);
 
   // 点击上方 4 个功能按钮时触发
@@ -246,6 +257,7 @@ export default function Home() {
                 key={cardKey} // key 变化会强制组件重新渲染，从而触发动画
                 user={matchedUser}
                 matchType={selectedMatchType}
+                matchedUser={matchedUserDetail}
                 onWantToKnow={handleWantToKnow}
                 onNext={handleNext}
                 isWantToKnow={
@@ -256,8 +268,22 @@ export default function Home() {
           ) : (
             // 空状态展示
             <div className="flex flex-col items-center justify-center h-60 text-gray-400">
-              <Compass className="w-12 h-12 mb-4 opacity-20" />
-              <p>暂无匹配用户</p>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-12 h-12 mb-4 animate-spin opacity-40" />
+                  <p className="text-center">正在寻找朋友...</p>
+                </>
+              ) : selectedFeature === null ? (
+                <>
+                  <Compass className="w-12 h-12 mb-4 opacity-20" />
+                  <p className="text-center">请点击上方的匹配方式按钮<br/>开始发现你的完美连接</p>
+                </>
+              ) : (
+                <>
+                  <Compass className="w-12 h-12 mb-4 opacity-20" />
+                  <p>暂无匹配用户</p>
+                </>
+              )}
             </div>
           )}
         </div>

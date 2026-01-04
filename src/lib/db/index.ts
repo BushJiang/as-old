@@ -6,11 +6,14 @@
  */
 
 import { drizzle } from 'drizzle-orm/neon-http'
-import { neon } from '@neondatabase/serverless'
+import { neon, neonConfig } from '@neondatabase/serverless'
 import * as schema from './schema'
 
 // 导出 schema 表定义
 export * from './schema'
+
+// 配置 Neon 连接
+neonConfig.fetchConnectionCache = true
 
 // 创建数据库连接实例
 function createDbConnection() {

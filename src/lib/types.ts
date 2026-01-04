@@ -35,6 +35,7 @@ export interface UserState {
   currentUser: User
   userProfilesMap: Record<string, User>
   potentialMatches: User[]
+  potentialMatchesWithDetails: any[] // 包含 bestMatch 和 allMatches 的匹配结果
   wantToKnowMatches: User[]
   passedMatches: User[]
   fetchProfile: () => Promise<boolean>
@@ -100,4 +101,16 @@ export interface AuthState {
   logout: () => Promise<void>
   completeProfile: () => void
   initializeSession: () => Promise<void>
+}
+
+// 匹配详情相关类型
+export interface InterestMatchDetail {
+  myInterest: string
+  theirInterest: string
+  similarityPercent: number
+}
+
+export interface MatchedUser extends User {
+  bestMatch: InterestMatchDetail
+  allMatches: InterestMatchDetail[]
 }

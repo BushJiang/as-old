@@ -6,51 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Heart, Sparkles, Quote } from "lucide-react";
 import type { User } from "@/lib/types";
 import { UserInfoPanel } from "@/components/user/UserInfoPanel";
+import type { MatchResult } from "@/lib/services/matching-service";
+import { generateMatchCopy, type MatchCopyInput } from "@/lib/services/ai-copy-service";
+import { useUserStore } from "@/stores/user-store";
 
 // --- 类型定义 ---
 type MatchType =
   | "similar-interests"
   | "mutual-needs"
   | "mutual-provide"
-  | "deep-analysis";
+  | "exploratory-discovery";
 
 interface SandwichCopy {
   hook: string;
   bridge: string;
   cta: string;
-}
-
-// --- 模拟 AI 逻辑 ---
-async function generateSandwichCopy(
-  matchType: MatchType,
-  user: User,
-): Promise<SandwichCopy> {
-  // 模拟 AI 思考时间
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  const mockDatabase: Record<MatchType, SandwichCopy> = {
-    "similar-interests": {
-      hook: "技术探索者",
-      bridge: `你的【编程】背景与${user.name}对【人工智能】的探索欲简直是天作之合。`,
-      cta: "或许你们可以聊聊最新的 AI Agent 架构？",
-    },
-    "mutual-needs": {
-      hook: "成长合伙人",
-      bridge: `你正在寻找的【UI设计指导】，${user.name} 刚好拥有丰富的实战经验。`,
-      cta: "要不要约个时间请教一下？",
-    },
-    "mutual-provide": {
-      hook: "互补型搭档",
-      bridge: `${user.name} 需要你的【后端开发】能力，而TA能帮你搞定【前端动效】。`,
-      cta: "也许你们可以一起开启一个小项目？",
-    },
-    "deep-analysis": {
-      hook: "灵魂共鸣",
-      bridge: "基于多维分析，你们在阅读品味和生活方式上有着惊人的相似度。",
-      cta: "给彼此一个认识的机会吧？",
-    },
-  };
-  return mockDatabase[matchType] || mockDatabase["similar-interests"];
 }
 
 interface MatchCardProps {
@@ -59,6 +29,8 @@ interface MatchCardProps {
   onWantToKnow?: (userId: string) => void;
   onNext?: () => void;
   isWantToKnow?: boolean;
+  // 新增：匹配详情（包含 bestMatch 和 allMatches）
+  matchedUser?: MatchResult;
 }
 
 export function MatchCard({
@@ -67,16 +39,35 @@ export function MatchCard({
   onWantToKnow,
   onNext,
   isWantToKnow = false,
+  matchedUser,
 }: MatchCardProps) {
+  const { currentUser } = useUserStore()
   const [sandwichCopy, setSandwichCopy] = useState<SandwichCopy | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
+
+    // 只有当有匹配数据时才生成文案
+    if (!matchedUser?.bestMatch) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setSandwichCopy(null);
 
-    generateSandwichCopy(matchType, user).then((data) => {
+    // 准备 AI 输入数据
+    const aiInput: MatchCopyInput = {
+      matchType: matchType,
+      myInterests: currentUser?.interests || [],
+      theirInterests: user.interests || [],
+      theirName: user.name,
+      matchDetails: matchedUser.allMatches || [matchedUser.bestMatch],
+    };
+
+    // 调用 AI 生成文案
+    generateMatchCopy(aiInput).then((data) => {
       if (isMounted) {
         setSandwichCopy(data);
         setIsLoading(false);
@@ -86,7 +77,7 @@ export function MatchCard({
     return () => {
       isMounted = false;
     };
-  }, [user.id, matchType, user]);
+  }, [user.id, matchedUser, user.name, user.interests, currentUser]);
 
   const handleWantToKnow = () => {
     if (onWantToKnow) onWantToKnow(user.id);
@@ -115,7 +106,7 @@ export function MatchCard({
                 </p>
               </div>
             </div>
-          ) : sandwichCopy ? (
+          ) : sandwichCopy && matchedUser?.bestMatch ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8">
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100/80 text-blue-600 text-xs font-bold tracking-wider uppercase">
@@ -128,13 +119,29 @@ export function MatchCard({
                   </span>
                   {sandwichCopy.hook}
                 </h2>
+                {/* 匹配度显示 */}
+                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 border border-blue-200">
+                  <span className="text-sm font-medium text-slate-600">匹配度</span>
+                  <span className={`text-lg font-bold ${
+                    matchedUser.bestMatch.similarityPercent >= 70 ? 'text-green-600' :
+                    matchedUser.bestMatch.similarityPercent >= 30 ? 'text-blue-600' :
+                    matchedUser.bestMatch.similarityPercent >= 0 ? 'text-gray-600' :
+                    'text-orange-500'
+                  }`}>
+                    {matchedUser.bestMatch.similarityPercent.toFixed(0)}%
+                  </span>
+                </div>
               </div>
+
+              {/* 第二段：连接语句 */}
               <div className="relative bg-white/60 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white/80 transform transition-transform hover:scale-105 duration-300">
                 <Quote className="absolute top-4 left-4 w-8 h-8 text-blue-100 -z-10 fill-current opacity-50" />
                 <p className="text-lg text-slate-700 leading-relaxed font-medium">
                   {sandwichCopy.bridge}
                 </p>
               </div>
+
+              {/* 第三段：破冰建议 */}
               <div className="text-slate-500 font-medium text-sm md:text-base">
                 💡 破冰建议:{" "}
                 <span className="text-blue-600 ml-1 border-b border-blue-200">

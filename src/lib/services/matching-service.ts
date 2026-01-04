@@ -9,8 +9,9 @@
 
 import { db } from '@/lib/db'
 import { userEmbeddings, userProfiles, users } from '@/lib/db/schema'
-import { eq, and, sql, desc, ne, gt } from 'drizzle-orm'
+import { eq, and, sql, desc, ne, gt, isNotNull, inArray } from 'drizzle-orm'
 import { vectorCosineDistance, calculateAverageVector } from '@/lib/db/vector'
+import type { InterestMatchDetail } from '@/lib/types'
 
 export interface MatchResult {
   userId: string
@@ -27,11 +28,70 @@ export interface MatchResult {
     commonInterests: string[]
     complementaryNeeds: { myNeed: string; theirProvide: string }[]
   }
+  // 新增：详细的匹配信息（用于兴趣相投匹配）
+  bestMatch?: InterestMatchDetail  // 最佳匹配（相似度最高的兴趣对）
+  allMatches?: InterestMatchDetail[]  // 所有匹配详情
+}
+
+// 每个兴趣搜索前 N 个最相似的结果（可调整）
+const TOP_N_PER_INTEREST = 10
+
+/**
+ * 搜索相似的兴趣向量
+ * @param vector 兴趣向量
+ * @param myInterestText 我的兴趣文本
+ * @param currentUserId 当前用户ID
+ * @param limit 返回结果数量限制
+ * @returns 匹配结果数组
+ */
+async function searchSimilarInterests(
+  vector: number[],
+  myInterestText: string,
+  currentUserId: string,
+  limit: number
+): Promise<Array<{ userId: string; match: InterestMatchDetail }>> {
+  const vectorStr = JSON.stringify(vector)
+  const query = sql`
+    SELECT
+      user_id,
+      source_text,
+      embedding <=> ${vectorStr}::vector as distance
+    FROM user_embeddings
+    WHERE user_id != ${currentUserId}
+      AND embedding_type = 'interest'
+      AND embedding_generation_status = 'completed'
+      AND embedding IS NOT NULL
+    ORDER BY embedding <=> ${vectorStr}::vector ASC
+    LIMIT ${limit}
+  `
+
+  const result = await db.execute(query)
+
+  return result.rows.map(row => {
+    const distance = row.distance as number
+    // 新公式：余弦距离 0 → 100%, 1 → 0%, 2 → -100%
+    const similarityPercent = (1 - distance) * 100
+
+    return {
+      userId: row.user_id as string,
+      match: {
+        myInterest: myInterestText,
+        theirInterest: row.source_text as string,
+        similarityPercent
+      }
+    }
+  })
 }
 
 /**
  * 兴趣相投匹配（使用向量相似度搜索）
  * 查找与当前用户兴趣相似的其他用户
+ *
+ * 算法：
+ * 1. 分别用每个兴趣向量搜索最相似的兴趣
+ * 2. 合并所有结果，按用户聚合
+ * 3. 取每个用户最高的相似度
+ * 4. 按相似度排序返回
  *
  * @param currentUserId 当前用户ID
  * @param limit 返回结果数量限制
@@ -41,7 +101,7 @@ export async function findSimilarInterests(
   currentUserId: string,
   limit: number = 10
 ): Promise<MatchResult[]> {
-  // 获取当前用户的兴趣向量
+  // 1. 获取当前用户的所有兴趣向量
   const myInterests = await db
     .select()
     .from(userEmbeddings)
@@ -57,76 +117,68 @@ export async function findSimilarInterests(
     return []
   }
 
-  // 计算平均兴趣向量
-  const interestVectors = myInterests
-    .filter(e => e.embedding !== null)
-    .map(e => e.embedding as number[])
+  // 2. 过滤出有效向量
+  const validInterests = myInterests.filter(e => e.embedding !== null)
 
-  if (interestVectors.length === 0) {
+  if (validInterests.length === 0) {
     // 如果没有向量，使用文本匹配作为降级方案
     return findSimilarInterestsByText(currentUserId, myInterests.map(e => e.sourceText), limit)
   }
 
-  const avgVector = calculateAverageVector(interestVectors)
+  console.log(`[匹配算法] 当前用户有 ${validInterests.length} 个兴趣向量`)
+  console.log(`[匹配算法] 兴趣列表:`, validInterests.map(e => e.sourceText))
 
-  // 使用余弦距离进行向量搜索
-  const matches = await db
-    .select({
-      userId: userEmbeddings.userId,
-      sourceText: userEmbeddings.sourceText,
-      distance: vectorCosineDistance(userEmbeddings.embedding, avgVector),
-    })
-    .from(userEmbeddings)
-    .where(
-      and(
-        ne(userEmbeddings.userId, currentUserId),
-        eq(userEmbeddings.embeddingType, 'interest'),
-        eq(userEmbeddings.embeddingGenerationStatus, 'completed')
-      )
+  // 3. 所有匹配结果（不去重）
+  const allMatches: Array<{
+    userId: string
+    match: InterestMatchDetail
+  }> = []
+
+  // 4. 对每个兴趣独立搜索
+  for (const myInterest of validInterests) {
+    console.log(`[匹配算法] 正在搜索兴趣: "${myInterest.sourceText}"...`)
+    const matches = await searchSimilarInterests(
+      myInterest.embedding as number[],
+      myInterest.sourceText,
+      currentUserId,
+      TOP_N_PER_INTEREST
     )
-    .orderBy(vectorCosineDistance(userEmbeddings.embedding, avgVector))
-    .limit(limit * 3) // 获取更多结果，因为需要按用户聚合
-
-  // 按用户聚合并计算平均距离
-  const userDistanceMap = new Map<string, { distance: number; count: number; texts: string[] }>()
-
-  for (const match of matches) {
-    const existing = userDistanceMap.get(match.userId) || { distance: 0, count: 0, texts: [] }
-    existing.distance += (match.distance as number) ?? 0
-    existing.count++
-    existing.texts.push(match.sourceText)
-    userDistanceMap.set(match.userId, existing)
+    console.log(`[匹配算法] 找到 ${matches.length} 个匹配`)
+    allMatches.push(...matches)
   }
 
-  // 计算每个用户的平均相似度
-  const sortedMatches = Array.from(userDistanceMap.entries())
-    .map(([userId, data]) => ({
-      userId,
-      avgDistance: data.distance / data.count,
-      commonInterests: data.texts,
-      similarity: 1 - data.distance / data.count, // 余弦距离转相似度
-    }))
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, limit)
+  console.log(`[匹配算法] 总共找到 ${allMatches.length} 个兴趣匹配结果`)
+
+  // 5. 按相似度从高到低排序（不删除重复用户）
+  allMatches.sort((a, b) => b.match.similarityPercent - a.match.similarityPercent)
+
+  // 6. 取前 limit 个匹配结果（同一个用户可能出现多次）
+  const sortedMatches = allMatches.slice(0, limit)
+
+  console.log(`[匹配算法] 返回前 ${sortedMatches.length} 个匹配结果（不删除重复用户）`)
+
+  // 输出详细日志
+  console.log(`[匹配详情] 前5个匹配:`)
+  sortedMatches.slice(0, 5).forEach((m, idx) => {
+    console.log(`  ${idx + 1}. 用户ID: ${m.userId.slice(0, 8)}...`)
+    console.log(`     匹配: "${m.match.myInterest}" ↔ "${m.match.theirInterest}": ${m.match.similarityPercent.toFixed(1)}%`)
+  })
 
   if (sortedMatches.length === 0) {
     return []
   }
 
-  // 获取匹配用户的详细信息
-  const matchedUserIds = sortedMatches.map(m => m.userId)
+  // 7. 查询用户详细信息（去重）
+  const uniqueUserIds = Array.from(new Set(sortedMatches.map(m => m.userId)))
   const profiles = await db
     .select()
     .from(userProfiles)
-    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
+    .where(inArray(userProfiles.userId, uniqueUserIds))
 
-  // 获取当前用户的兴趣文本
-  const myInterestTexts = myInterests.map(e => e.sourceText)
-
-  // 构建结果
+  // 8. 构建最终结果（每个匹配都是独立的卡片）
   const results: MatchResult[] = []
-  for (const match of sortedMatches) {
-    const profile = profiles.find(p => p.userId === match.userId)
+  for (const { userId, match } of sortedMatches) {
+    const profile = profiles.find(p => p.userId === userId)
     if (profile) {
       results.push({
         userId: profile.userId,
@@ -138,11 +190,14 @@ export async function findSimilarInterests(
         interests: profile.interests || [],
         needs: profile.needs || [],
         provide: profile.provide || [],
-        similarity: match.similarity,
+        similarity: match.similarityPercent / 100, // 转换回 0-1 范围
         matchReasons: {
-          commonInterests: match.commonInterests.filter(t => myInterestTexts.includes(t)),
+          commonInterests: [match.theirInterest],
           complementaryNeeds: [],
         },
+        // 添加详细的匹配信息
+        bestMatch: match,
+        allMatches: [match], // 每个卡片只有一个匹配
       })
     }
   }
@@ -199,7 +254,7 @@ async function findSimilarInterestsByText(
   const profiles = await db
     .select()
     .from(userProfiles)
-    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
+    .where(inArray(userProfiles.userId, matchedUserIds))
 
   // 构建结果
   const results: MatchResult[] = []
@@ -268,23 +323,21 @@ export async function findMutualNeeds(
 
   const avgNeedVector = calculateAverageVector(needVectors)
 
-  // 使用余弦距离进行向量搜索：我的需求 vs 他们的提供
-  const matches = await db
-    .select({
-      userId: userEmbeddings.userId,
-      sourceText: userEmbeddings.sourceText,
-      distance: vectorCosineDistance(userEmbeddings.embedding, avgNeedVector),
-    })
-    .from(userEmbeddings)
-    .where(
-      and(
-        ne(userEmbeddings.userId, currentUserId),
-        eq(userEmbeddings.embeddingType, 'provide'),
-        eq(userEmbeddings.embeddingGenerationStatus, 'completed')
-      )
-    )
-    .orderBy(vectorCosineDistance(userEmbeddings.embedding, avgNeedVector))
-    .limit(limit * 3) // 获取更多结果，因为需要按用户聚合
+  // 使用原始 SQL 进行向量搜索：我的需求 vs 他们的提供
+  const vectorStr = JSON.stringify(avgNeedVector)
+  const matches = await db.execute(sql`
+    SELECT
+      user_id,
+      source_text,
+      embedding <=> ${vectorStr}::vector as distance
+    FROM user_embeddings
+    WHERE user_id != ${currentUserId}
+      AND embedding_type = 'provide'
+      AND embedding_generation_status = 'completed'
+      AND embedding IS NOT NULL
+    ORDER BY embedding <=> ${vectorStr}::vector
+    LIMIT ${limit * 3}
+  `)
 
   // 按用户聚合并计算平均距离
   const userDistanceMap = new Map<string, {
@@ -293,16 +346,20 @@ export async function findMutualNeeds(
     texts: string[]
   }>()
 
-  for (const match of matches) {
-    const existing = userDistanceMap.get(match.userId) || {
+  for (const row of matches.rows) {
+    const userId = row.user_id as string
+    const sourceText = row.source_text as string
+    const distance = row.distance as number
+
+    const existing = userDistanceMap.get(userId) || {
       distance: 0,
       count: 0,
       texts: []
     }
-    existing.distance += (match.distance as number) ?? 0
+    existing.distance += distance ?? 0
     existing.count++
-    existing.texts.push(match.sourceText)
-    userDistanceMap.set(match.userId, existing)
+    existing.texts.push(sourceText)
+    userDistanceMap.set(userId, existing)
   }
 
   // 计算每个用户的平均相似度
@@ -325,7 +382,7 @@ export async function findMutualNeeds(
   const profiles = await db
     .select()
     .from(userProfiles)
-    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
+    .where(inArray(userProfiles.userId, matchedUserIds))
 
   // 获取当前用户的需求文本（用于显示匹配原因）
   const myNeedTexts = myNeeds.map(e => e.sourceText)
@@ -343,6 +400,19 @@ export async function findMutualNeeds(
         }
       }
 
+      // 生成 bestMatch（使用第一个互补需求对）
+      const bestMatch = complementaryNeeds.length > 0
+        ? {
+            myInterest: complementaryNeeds[0].myNeed,
+            theirInterest: complementaryNeeds[0].theirProvide,
+            similarityPercent: match.similarity * 100,
+          }
+        : {
+            myInterest: myNeedTexts[0] || '需求',
+            theirInterest: match.provideTexts[0] || '提供',
+            similarityPercent: match.similarity * 100,
+          }
+
       results.push({
         userId: profile.userId,
         name: profile.name,
@@ -358,6 +428,9 @@ export async function findMutualNeeds(
           commonInterests: [],
           complementaryNeeds,
         },
+        // 添加详细的匹配信息
+        bestMatch,
+        allMatches: [bestMatch],
       })
     }
   }
@@ -421,13 +494,26 @@ async function findMutualNeedsByText(
   const profiles = await db
     .select()
     .from(userProfiles)
-    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
+    .where(inArray(userProfiles.userId, matchedUserIds))
 
   // 构建结果
   const results: MatchResult[] = []
   for (const [userId, matchInfo] of sortedMatches) {
     const profile = profiles.find(p => p.userId === userId)
     if (profile) {
+      // 生成 bestMatch
+      const bestMatch = matchInfo.complementaryNeeds.length > 0
+        ? {
+            myInterest: matchInfo.complementaryNeeds[0].myNeed,
+            theirInterest: matchInfo.complementaryNeeds[0].theirProvide,
+            similarityPercent: 50, // 文本匹配的默认相似度
+          }
+        : {
+            myInterest: myNeedTexts[0] || '需求',
+            theirInterest: '提供',
+            similarityPercent: 30,
+          }
+
       results.push({
         userId: profile.userId,
         name: profile.name,
@@ -443,6 +529,9 @@ async function findMutualNeedsByText(
           commonInterests: [],
           complementaryNeeds: matchInfo.complementaryNeeds,
         },
+        // 添加详细的匹配信息
+        bestMatch,
+        allMatches: [bestMatch],
       })
     }
   }
@@ -544,23 +633,21 @@ export async function findExploratoryDiscovery(
 
   const avgInterestVector = calculateAverageVector(interestVectors)
 
-  // 使用余弦距离进行向量搜索，找距离最远的（最不相似的）
-  const matches = await db
-    .select({
-      userId: userEmbeddings.userId,
-      sourceText: userEmbeddings.sourceText,
-      distance: vectorCosineDistance(userEmbeddings.embedding, avgInterestVector),
-    })
-    .from(userEmbeddings)
-    .where(
-      and(
-        ne(userEmbeddings.userId, currentUserId),
-        eq(userEmbeddings.embeddingType, 'interest'),
-        eq(userEmbeddings.embeddingGenerationStatus, 'completed')
-      )
-    )
-    .orderBy(sql`vector_cosine_distance(${userEmbeddings.embedding}, ${avgInterestVector}) DESC`) // 降序：距离最远的在前
-    .limit(limit * 3)
+  // 使用原始 SQL 进行向量搜索，找距离最远的（最不相似的）
+  const vectorStr = JSON.stringify(avgInterestVector)
+  const matches = await db.execute(sql`
+    SELECT
+      user_id,
+      source_text,
+      embedding <=> ${vectorStr}::vector as distance
+    FROM user_embeddings
+    WHERE user_id != ${currentUserId}
+      AND embedding_type = 'interest'
+      AND embedding_generation_status = 'completed'
+      AND embedding IS NOT NULL
+    ORDER BY embedding <=> ${vectorStr}::vector DESC
+    LIMIT ${limit * 3}
+  `)
 
   // 按用户聚合并计算平均距离
   const userDistanceMap = new Map<string, {
@@ -569,16 +656,20 @@ export async function findExploratoryDiscovery(
     texts: string[]
   }>()
 
-  for (const match of matches) {
-    const existing = userDistanceMap.get(match.userId) || {
+  for (const row of matches.rows) {
+    const userId = row.user_id as string
+    const sourceText = row.source_text as string
+    const distance = row.distance as number
+
+    const existing = userDistanceMap.get(userId) || {
       distance: 0,
       count: 0,
       texts: []
     }
-    existing.distance += (match.distance as number) ?? 0
+    existing.distance += distance ?? 0
     existing.count++
-    existing.texts.push(match.sourceText)
-    userDistanceMap.set(match.userId, existing)
+    existing.texts.push(sourceText)
+    userDistanceMap.set(userId, existing)
   }
 
   // 计算每个用户的平均相似度（注意：这里相似度低是好事）
@@ -601,13 +692,20 @@ export async function findExploratoryDiscovery(
   const profiles = await db
     .select()
     .from(userProfiles)
-    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
+    .where(inArray(userProfiles.userId, matchedUserIds))
 
   // 构建结果
   const results: MatchResult[] = []
   for (const match of sortedMatches) {
     const profile = profiles.find(p => p.userId === match.userId)
     if (profile) {
+      // 生成 bestMatch（探索发现：找出最不相似的兴趣）
+      const bestMatch = {
+        myInterest: myInterests[0]?.sourceText || '兴趣',
+        theirInterest: match.differentInterests[0] || '兴趣',
+        similarityPercent: match.similarity * 100, // 探索发现的相似度会较低
+      }
+
       results.push({
         userId: profile.userId,
         name: profile.name,
@@ -623,6 +721,9 @@ export async function findExploratoryDiscovery(
           commonInterests: [], // 探索发现没有共同兴趣
           complementaryNeeds: [],
         },
+        // 添加详细的匹配信息
+        bestMatch,
+        allMatches: [bestMatch],
       })
     }
   }
@@ -670,23 +771,21 @@ export async function findMutualProvide(
 
   const avgProvideVector = calculateAverageVector(provideVectors)
 
-  // 使用余弦距离进行向量搜索：我的提供 vs 他们的需求
-  const matches = await db
-    .select({
-      userId: userEmbeddings.userId,
-      sourceText: userEmbeddings.sourceText,
-      distance: vectorCosineDistance(userEmbeddings.embedding, avgProvideVector),
-    })
-    .from(userEmbeddings)
-    .where(
-      and(
-        ne(userEmbeddings.userId, currentUserId),
-        eq(userEmbeddings.embeddingType, 'need'),
-        eq(userEmbeddings.embeddingGenerationStatus, 'completed')
-      )
-    )
-    .orderBy(vectorCosineDistance(userEmbeddings.embedding, avgProvideVector))
-    .limit(limit * 3)
+  // 使用原始 SQL 进行向量搜索：我的提供 vs 他们的需求
+  const vectorStr = JSON.stringify(avgProvideVector)
+  const matches = await db.execute(sql`
+    SELECT
+      user_id,
+      source_text,
+      embedding <=> ${vectorStr}::vector as distance
+    FROM user_embeddings
+    WHERE user_id != ${currentUserId}
+      AND embedding_type = 'need'
+      AND embedding_generation_status = 'completed'
+      AND embedding IS NOT NULL
+    ORDER BY embedding <=> ${vectorStr}::vector
+    LIMIT ${limit * 3}
+  `)
 
   // 按用户聚合并计算平均距离
   const userDistanceMap = new Map<string, {
@@ -695,16 +794,20 @@ export async function findMutualProvide(
     texts: string[]
   }>()
 
-  for (const match of matches) {
-    const existing = userDistanceMap.get(match.userId) || {
+  for (const row of matches.rows) {
+    const userId = row.user_id as string
+    const sourceText = row.source_text as string
+    const distance = row.distance as number
+
+    const existing = userDistanceMap.get(userId) || {
       distance: 0,
       count: 0,
       texts: []
     }
-    existing.distance += (match.distance as number) ?? 0
+    existing.distance += distance ?? 0
     existing.count++
-    existing.texts.push(match.sourceText)
-    userDistanceMap.set(match.userId, existing)
+    existing.texts.push(sourceText)
+    userDistanceMap.set(userId, existing)
   }
 
   // 计算每个用户的平均相似度
@@ -727,7 +830,7 @@ export async function findMutualProvide(
   const profiles = await db
     .select()
     .from(userProfiles)
-    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
+    .where(inArray(userProfiles.userId, matchedUserIds))
 
   // 获取当前用户的提供文本
   const myProvideTexts = myProvides.map(e => e.sourceText)
@@ -745,6 +848,19 @@ export async function findMutualProvide(
         }
       }
 
+      // 生成 bestMatch
+      const bestMatch = complementaryNeeds.length > 0
+        ? {
+            myInterest: complementaryNeeds[0].myNeed,
+            theirInterest: complementaryNeeds[0].theirProvide,
+            similarityPercent: match.similarity * 100,
+          }
+        : {
+            myInterest: myProvideTexts[0] || '提供',
+            theirInterest: match.needTexts[0] || '需求',
+            similarityPercent: match.similarity * 100,
+          }
+
       results.push({
         userId: profile.userId,
         name: profile.name,
@@ -760,6 +876,9 @@ export async function findMutualProvide(
           commonInterests: [],
           complementaryNeeds,
         },
+        // 添加详细的匹配信息
+        bestMatch,
+        allMatches: [bestMatch],
       })
     }
   }
@@ -823,13 +942,26 @@ async function findMutualProvideByText(
   const profiles = await db
     .select()
     .from(userProfiles)
-    .where(sql`${userProfiles.userId} = ANY(${matchedUserIds})`)
+    .where(inArray(userProfiles.userId, matchedUserIds))
 
   // 构建结果
   const results: MatchResult[] = []
   for (const [userId, matchInfo] of sortedMatches) {
     const profile = profiles.find(p => p.userId === userId)
     if (profile) {
+      // 生成 bestMatch
+      const bestMatch = matchInfo.complementaryNeeds.length > 0
+        ? {
+            myInterest: matchInfo.complementaryNeeds[0].myNeed,
+            theirInterest: matchInfo.complementaryNeeds[0].theirProvide,
+            similarityPercent: 50, // 文本匹配的默认相似度
+          }
+        : {
+            myInterest: myProvideTexts[0] || '提供',
+            theirInterest: '需求',
+            similarityPercent: 30,
+          }
+
       results.push({
         userId: profile.userId,
         name: profile.name,
@@ -845,6 +977,9 @@ async function findMutualProvideByText(
           commonInterests: [],
           complementaryNeeds: matchInfo.complementaryNeeds,
         },
+        // 添加详细的匹配信息
+        bestMatch,
+        allMatches: [bestMatch],
       })
     }
   }

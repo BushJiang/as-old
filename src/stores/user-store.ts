@@ -10,6 +10,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { User, UserState } from '@/lib/types'
 import { profileApi, matchesApi } from '@/lib/api-client'
 import { useAuthStore } from './auth-store'
+import type { MatchResult } from '@/lib/services/matching-service'
 
 // 用户资料映射：按 userId 存储多个用户的资料
 interface UserProfilesMap {
@@ -36,6 +37,7 @@ export const useUserStore = create<UserState>()(
       currentUser: createDefaultUser('00000000-0000-0000-0000-000000000000'),
       userProfilesMap: {},
       potentialMatches: [],
+      potentialMatchesWithDetails: [], // 新增：包含匹配详情的推荐列表
       wantToKnowMatches: [],
       passedMatches: [],
 
@@ -90,7 +92,27 @@ export const useUserStore = create<UserState>()(
        */
       updateProfile: async (data: Partial<User>) => {
         try {
-          // 先更新本地状态（乐观更新）
+          // 调用后端 API 更新（需要将 avatar 映射为 avatarUrl）
+          const { avatar, gender, ...restData } = data
+          const apiData: any = { ...restData }
+          if (avatar !== undefined) {
+            apiData.avatarUrl = avatar
+          }
+          // 只在 gender 有值时才传递（避免传递 undefined 导致验证失败）
+          if (gender !== undefined) {
+            apiData.gender = gender
+          }
+
+          console.log('调用 API 更新资料，数据:', apiData)
+          const result = await profileApi.updateProfile(apiData)
+          console.log('API 返回结果:', result)
+
+          if (result.error || !result.data) {
+            console.error('更新用户资料失败:', result.error)
+            return false
+          }
+
+          // 后端更新成功后，更新本地状态
           set((s) => {
             const updatedUser = s.currentUser ? { ...s.currentUser, ...data } as User : createDefaultUser('00000000-0000-0000-0000-000000000000')
             const newProfilesMap = { ...s.userProfilesMap }
@@ -102,20 +124,6 @@ export const useUserStore = create<UserState>()(
               userProfilesMap: newProfilesMap
             }
           })
-
-          // 调用后端 API 更新（需要将 avatar 映射为 avatarUrl）
-          const { avatar, ...restData } = data
-          const apiData = avatar !== undefined
-            ? { ...restData, avatarUrl: avatar }
-            : restData
-          const result = await profileApi.updateProfile(apiData)
-
-          if (result.error) {
-            console.error('更新用户资料失败:', result.error)
-            // 回滚本地状态
-            await get().fetchProfile()
-            return false
-          }
 
           return true
         } catch (error) {
@@ -165,7 +173,9 @@ export const useUserStore = create<UserState>()(
         offset?: number
       }) => {
         try {
+          console.log('开始获取推荐，参数:', params)
           const result = await matchesApi.getRecommendations(params)
+          console.log('API 返回结果:', result)
 
           if (result.error) {
             console.error('获取推荐失败:', result.error)
@@ -173,6 +183,12 @@ export const useUserStore = create<UserState>()(
           }
 
           if (result.data && Array.isArray(result.data)) {
+            console.log('匹配用户数量:', result.data.length)
+
+            // 保存完整的匹配结果（包含 bestMatch 和 allMatches）
+            const matchResults: MatchResult[] = result.data
+
+            // 同时构建 User[] 列表以保持向后兼容
             const users: User[] = result.data.map((item: any) => ({
               id: item.userId || item.id,
               name: item.name,
@@ -186,7 +202,11 @@ export const useUserStore = create<UserState>()(
               provide: item.provide || [],
             }))
 
-            set({ potentialMatches: users })
+            console.log('解析后的用户列表:', users)
+            set({
+              potentialMatches: users,
+              potentialMatchesWithDetails: matchResults,
+            })
 
             // 更新用户资料映射
             set((state) => {
@@ -200,6 +220,7 @@ export const useUserStore = create<UserState>()(
             return true
           }
 
+          console.log('没有返回匹配数据')
           return false
         } catch (error) {
           console.error('获取推荐错误:', error)
@@ -351,6 +372,7 @@ export const useUserStore = create<UserState>()(
         userProfilesMap: state.userProfilesMap,
         // 不持久化匹配列表，每次从后端获取
         potentialMatches: state.potentialMatches,
+        potentialMatchesWithDetails: state.potentialMatchesWithDetails,
         wantToKnowMatches: state.wantToKnowMatches,
         passedMatches: state.passedMatches,
       }),

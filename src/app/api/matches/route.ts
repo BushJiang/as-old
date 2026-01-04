@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { mode, limit, offset } = validatedQuery.data
+    console.log('[API] 匹配请求:', { userId, mode, limit, offset })
 
     // 检查用户是否已创建资料
     const [profile] = await db
@@ -75,9 +76,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    console.log('[API] 用户资料:', profile.name)
+
     // 根据匹配模式调用对应的服务
     let matches: MatchResult[] = []
 
+    console.log('[API] 开始匹配...')
     switch (mode) {
       case "similar-interests":
         matches = await findSimilarInterests(userId, limit + offset)
@@ -96,6 +100,8 @@ export async function GET(request: NextRequest) {
         break
     }
 
+    console.log('[API] 匹配完成，结果数:', matches.length)
+
     // 应用分页
     const paginatedMatches = matches.slice(offset, offset + limit)
 
@@ -103,9 +109,14 @@ export async function GET(request: NextRequest) {
       data: paginatedMatches
     })
   } catch (error) {
-    console.error("获取匹配列表错误:", error)
+    console.error("============================================")
+    console.error("[API] 获取匹配列表错误:", error)
+    console.error("[API] 错误类型:", error?.constructor?.name)
+    console.error("[API] 错误消息:", error instanceof Error ? error.message : String(error))
+    console.error("[API] 错误堆栈:", error instanceof Error ? error.stack : 'No stack trace')
+    console.error("============================================")
     return NextResponse.json(
-      { error: "服务器内部错误" },
+      { error: "服务器内部错误", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }

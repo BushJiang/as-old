@@ -15,9 +15,7 @@ import {
 } from '@/components/ui/card'
 import { ProfileFormFields, type ProfileFormData } from '@/components/user/ProfileFormFields'
 import { Progress } from '@/components/ui/progress'
-import { CheckCircle, Loader2 } from 'lucide-react'
-
-type PageStep = 'form' | 'success' | 'vectorizing'
+import { Loader2 } from 'lucide-react'
 
 export default function ProfileSetupPage() {
   const router = useRouter()
@@ -26,15 +24,12 @@ export default function ProfileSetupPage() {
 
   const [formData, setFormData] = useState<ProfileFormData | null>(null)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  // 新增状态：控制页面步骤
-  const [step, setStep] = useState<PageStep>('form')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isVectorizing, setIsVectorizing] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [vectorizeError, setVectorizeError] = useState('')
 
-  // 提交表单
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 提交表单并自动向量化
+  const handleSubmitAndVectorize = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
@@ -43,9 +38,10 @@ export default function ProfileSetupPage() {
       return
     }
 
-    setLoading(true)
+    setIsSubmitting(true)
 
     try {
+      // 1. 创建用户资料
       const response = await fetch('/api/user/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,40 +60,34 @@ export default function ProfileSetupPage() {
 
       const data = await response.json()
 
-      if (data.data) {
-        // 更新本地状态
-        completeProfile()
-        updateProfile(data.data)
-        // 切换到成功界面，不再自动跳转
-        setStep('success')
-      } else {
+      if (!data.data) {
         setError(data.error || '保存失败，请重试')
+        setIsSubmitting(false)
+        return
       }
-    } catch (err) {
-      console.error('保存资料错误:', err)
-      setError('保存失败，请重试')
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  // 开始向量化
-  const handleStartMatching = async () => {
-    setStep('vectorizing')
-    setProgress(0)
-    setVectorizeError('')
+      // 更新本地状态
+      completeProfile()
+      updateProfile(data.data)
 
-    try {
-      // 1. 先调用 generate 触发向量化
-      await embeddingsApi.generate({ embeddingType: 'all' })
+      // 2. 自动开始向量化
+      setIsVectorizing(true)
+      setProgress(0)
 
-      // 2. 轮询状态
+      console.log('开始向量化...')
+      const generateResult = await embeddingsApi.generate({ embeddingType: 'all' })
+      console.log('向量化结果:', generateResult)
+
+      // 3. 轮询状态
       const result = await embeddingsApi.pollStatus(
         (currentProgress) => {
+          console.log('向量化进度:', currentProgress)
           setProgress(currentProgress)
         },
         1000
       )
+
+      console.log('最终结果:', result)
 
       if (result.success) {
         // 向量化完成，跳转到首页
@@ -105,13 +95,14 @@ export default function ProfileSetupPage() {
           router.push('/')
         }, 500)
       } else {
-        setVectorizeError(result.error || '向量化失败，请重试')
-        setStep('success')
+        setError(result.error || '向量化失败，请重试')
+        setIsVectorizing(false)
       }
     } catch (err) {
-      console.error('向量化错误:', err)
-      setVectorizeError('向量化失败，请重试')
-      setStep('success')
+      console.error('操作错误:', err)
+      setError('保存失败，请重试')
+      setIsSubmitting(false)
+      setIsVectorizing(false)
     }
   }
 
@@ -119,108 +110,54 @@ export default function ProfileSetupPage() {
     <div className="min-h-screen bg-gray-50/50 p-4">
       <div className="flex items-center justify-center">
         <Card className="w-full max-w-sm">
-          {/* 步骤 1：填写资料表单 */}
-          {step === 'form' && (
-            <>
-              <CardHeader>
-                <CardTitle>完善个人信息</CardTitle>
-                <CardDescription>
-                  请填写你的个人信息，以便我们更好地为你匹配
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 pt-0">
-                <form id="profile-form" onSubmit={handleSubmit}>
-                  <div className="flex flex-col gap-4">
-                    <ProfileFormFields
-                      userId={user?.id || ''}
-                      onChange={setFormData}
-                      error={error}
+          <CardHeader>
+            <CardTitle>完善个人信息</CardTitle>
+            <CardDescription>
+              请填写你的个人信息，以便我们更好地为你匹配
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 pt-0">
+            <form id="profile-form" onSubmit={handleSubmitAndVectorize}>
+              <div className="flex flex-col gap-4">
+                <ProfileFormFields
+                  userId={user?.id || ''}
+                  onChange={setFormData}
+                  error={error}
+                />
+              </div>
+
+              {/* 向量化进度 */}
+              {isVectorizing && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                    <span className="text-sm font-medium text-blue-700">
+                      正在生成匹配数据...
+                    </span>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
                     />
                   </div>
-
-                  <div className="flex flex-col gap-2 mt-4">
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={loading || !formData}
-                    >
-                      {loading ? '保存中...' : '完成'}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </>
-          )}
-
-          {/* 步骤 2：完成并开始匹配 */}
-          {step === 'success' && (
-            <>
-              <CardHeader className="text-center">
-                <div className="flex justify-center mb-4">
-                  <CheckCircle className="w-16 h-16 text-green-500" />
-                </div>
-                <CardTitle>资料填写完成</CardTitle>
-                <CardDescription>
-                  恭喜你完成个人信息填写
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 pt-0">
-                <div className="flex flex-col gap-4">
-                  <p className="text-sm text-gray-600 text-center">
-                    点击下方按钮，我们将根据你的兴趣和需求为你匹配合适的用户
-                  </p>
-
-                  {vectorizeError && (
-                    <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-md text-center">
-                      {vectorizeError}
-                    </div>
-                  )}
-
-                  <Button
-                    onClick={handleStartMatching}
-                    className="w-full"
-                    size="lg"
-                  >
-                    开始匹配
-                  </Button>
-
-                  <p className="text-xs text-gray-500 text-center">
-                    首次使用需要生成向量数据，可能需要几秒钟
+                  <p className="text-xs text-blue-600 mt-2 text-center">
+                    {progress}% 完成
                   </p>
                 </div>
-              </CardContent>
-            </>
-          )}
+              )}
 
-          {/* 步骤 3：向量化进度 */}
-          {step === 'vectorizing' && (
-            <>
-              <CardHeader className="text-center">
-                <div className="flex justify-center mb-4">
-                  <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
-                </div>
-                <CardTitle>正在生成匹配数据</CardTitle>
-                <CardDescription>
-                  请稍候，我们正在分析你的兴趣和需求
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 pt-0">
-                <div className="flex flex-col gap-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">处理进度</span>
-                      <span className="font-medium">{progress}%</span>
-                    </div>
-                    <Progress value={progress} className="w-full" />
-                  </div>
-
-                  <p className="text-xs text-gray-500 text-center">
-                    正在生成向量嵌入...
-                  </p>
-                </div>
-              </CardContent>
-            </>
-          )}
+              <div className="flex flex-col gap-2 mt-4">
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting || isVectorizing || !formData}
+                >
+                  {isVectorizing ? '生成匹配数据中...' : isSubmitting ? '保存中...' : '完成'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
         </Card>
       </div>
     </div>

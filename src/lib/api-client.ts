@@ -154,7 +154,7 @@ export const matchesApi = {
    * 获取推荐匹配
    */
   async getRecommendations(params?: {
-    mode?: 'similar-interests' | 'mutual-needs' | 'comprehensive'
+    mode?: 'similar-interests' | 'mutual-needs' | 'mutual-provide' | 'exploratory-discovery' | 'comprehensive'
     limit?: number
     offset?: number
   }) {
