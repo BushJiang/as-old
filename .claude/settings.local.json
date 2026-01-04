@@ -11,7 +11,8 @@
       "dev-system-architecture",
       "meta-42cog",
       "pm-product-requirements",
-      "pm-user-story"
+      "pm-user-story",
+      "pitfall_summary"
     ]
   },
   "hooks": {},

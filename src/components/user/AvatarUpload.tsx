@@ -88,26 +88,43 @@ export function AvatarUpload({
       setPreview(null)
     } finally {
       setUploading(false)
+      // 重置 file input，允许选择同一文件
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
-  const displayAvatar = preview || currentAvatar || '/avatars/default.svg'
+  // 判断显示内容：优先显示预览，否则显示当前头像，最后显示默认头像
+  const hasCustomAvatar = currentAvatar && currentAvatar !== '/avatars/default.svg'
+  const showDefault = !preview && !hasCustomAvatar
 
   return (
     <div className="flex flex-col items-center gap-3">
       {/* 头像容器 */}
       <div className="relative">
         <div
-          className={`${sizeConfig[size].container} rounded-full overflow-hidden border-4 border-gray-200 bg-gray-50 relative`}
+          className={`${sizeConfig[size].container} rounded-full overflow-hidden border-4 border-gray-200 bg-gray-50 relative flex items-center justify-center`}
         >
-          <Image
-            src={displayAvatar}
-            alt={userName}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority
-          />
+          {showDefault ? (
+            // 显示用户名首字母（居中）
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500">
+              <span className="text-white font-bold text-4xl">
+                {userName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          ) : (
+            // 显示图片（预览或已上传的头像）
+            <Image
+              src={preview || currentAvatar || '/avatars/default.svg'}
+              alt={userName}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority
+              key={preview || currentAvatar}
+            />
+          )}
 
           {/* 上传中遮罩 */}
           {uploading && (

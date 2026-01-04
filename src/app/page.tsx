@@ -15,7 +15,7 @@ type MatchType =
   | "similar-interests"
   | "mutual-needs"
   | "mutual-provide"
-  | "deep-analysis";
+  | "exploratory-discovery";
 
 // =========================================================================
 // ✨✨ 配置区域：这里定义那 4 个功能按钮的样式、文字和颜色 ✨✨
@@ -59,7 +59,7 @@ const FEATURES = [
   {
     title: "探索发现",
     desc: "无限可能",
-    type: "deep-analysis" as MatchType,
+    type: "exploratory-discovery" as MatchType,
     icon: Compass,
     activeColor: "text-violet-500",
     activeBg: "bg-violet-50",
@@ -71,7 +71,7 @@ const FEATURES = [
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const { currentUser, potentialMatches, toggleWantToKnow, isWantToKnow } =
+  const { currentUser, potentialMatches, toggleWantToKnow, isWantToKnow, fetchRecommendations } =
     useUserStore();
 
   // --- 状态管理区域 ---
@@ -94,6 +94,13 @@ export default function Home() {
     }
   }, [isMounted, isAuthenticated, router]);
 
+  // 从 API 获取匹配数据
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      fetchRecommendations({ mode: selectedMatchType, limit: 20 });
+    }
+  }, [selectedMatchType, isAuthenticated, currentUser, fetchRecommendations]);
+
   // 🤖 核心逻辑：根据选中的模式，计算该显示哪个用户
   // 如果你想修改匹配算法，主要看这里
   useEffect(() => {
@@ -102,7 +109,7 @@ export default function Home() {
         "similar-interests": 0,
         "mutual-needs": 1,
         "mutual-provide": 2,
-        "deep-analysis": 3,
+        "exploratory-discovery": 3,
       };
       // 这里的逻辑是简单的取模循环，实际项目可能需要从 API 获取
       const baseIndex = indexMap[selectedMatchType];

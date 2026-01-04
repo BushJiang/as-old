@@ -32,22 +32,37 @@ export interface AppState {
 }
 
 export interface UserState {
-  currentUser: User | null
+  currentUser: User
   userProfilesMap: Record<string, User>
   potentialMatches: User[]
   wantToKnowMatches: User[]
   passedMatches: User[]
-  updateProfile: (data: Partial<User>) => void
-  addPotentialMatch: (user: User) => void
-  wantToKnowUser: (userId: string) => void
-  addToWantToKnow: (userId: string) => void
+  fetchProfile: () => Promise<boolean>
+  updateProfile: (data: Partial<User>) => Promise<boolean>
+  createProfile: (profile: {
+    name: string
+    age: number
+    gender?: 'male' | 'female' | 'other'
+    city?: string
+    avatarUrl?: string
+    bio?: string
+    interests: string[]
+    needs: string[]
+    provide: string[]
+  }) => Promise<boolean>
+  fetchRecommendations: (params?: {
+    mode?: 'similar-interests' | 'mutual-needs' | 'comprehensive'
+    limit?: number
+    offset?: number
+  }) => Promise<boolean>
+  addToWantToKnow: (userId: string) => Promise<boolean>
   removeFromWantToKnow: (userId: string) => void
-  toggleWantToKnow: (userId: string) => void
+  toggleWantToKnow: (userId: string) => Promise<void>
   isWantToKnow: (userId: string) => boolean
-  passUser: (userId: string) => void
+  passUser: (userId: string) => Promise<boolean>
   getWantToKnowUsers: () => User[]
-  reinitializeUser: () => void
-  clearMatches: () => void
+  reinitializeUser: () => Promise<void>
+  clearMatches: () => Promise<void>
 }
 
 export interface FilterStateStore {
@@ -77,12 +92,12 @@ export interface AuthUser {
 export interface AuthState {
   isAuthenticated: boolean
   user: AuthUser | null
-  // mockUsers 是内部类型，包含密码用于验证
-  // 在实际项目中应该移到后端
-  mockUsers: Array<AuthUser & { password: string }>
-  checkUserExists: (email: string) => boolean
+  checkEmailExists: (email: string) => Promise<{ exists: boolean; error?: string }>
+  sendVerificationCode: (email: string) => Promise<{ success: boolean; error?: string }>
+  loginWithCode: (email: string, code: string) => Promise<{ success: boolean; error?: string }>
   login: (email: string, password: string) => Promise<boolean>
-  register: (email: string, password: string) => Promise<boolean>
-  logout: () => void
+  register: (email: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
   completeProfile: () => void
+  initializeSession: () => Promise<void>
 }

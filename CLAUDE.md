@@ -797,10 +797,503 @@ await hash(password, 10)
 
 ---
 
+### 邮箱验证码功能踩坑
+
+#### 缺少 React Email 依赖包
+
+错误做法：
+```typescript
+// 只安装 resend 包
+bun add resend
+
+// 直接使用 React 组件
+const { data, error } = await resend.emails.send({
+  react: <VerificationCodeEmail code={code} />
+})
+```
+
+正确做法：
+```bash
+# 必须同时安装 React Email 相关包
+bun add resend @react-email/components @react-email/render
+```
+
+原因：
+Resend 的 `react` 参数需要 `@react-email/render` 或 `@react-email/components` 包来渲染 React 组件。只安装 `resend` 包会导致运行时错误。
+
+相关文件：
+- `src/app/api/auth/send-code/route.ts` - 发送验证码 API
+- `src/components/email/VerificationCodeEmail.tsx` - React 邮件模板
+
+---
+
+#### 自定义域名未验证
+
+错误信息：
+```json
+{
+  "statusCode": 403,
+  "message": "The rugumatch.com domain is not verified. Please, add and verify your domain on https://resend.com/domains"
+}
+```
+
+错误做法：
+```bash
+# 使用未验证的自定义域名
+EMAIL_FROM=如故 <noreply@rugumatch.com>
+```
+
+正确做法：
+```bash
+# 开发环境：使用 Resend 测试域名
+EMAIL_FROM=如故 <onboarding@resend.dev>
+
+# 生产环境：购买并验证域名
+# 1. 购买域名（约 $10-15/年）
+# 2. 在 Resend 控制台添加并验证域名
+# 3. 配置 DNS 记录
+EMAIL_FROM=如故 <noreply@rugumatch.com>
+```
+
+原因：
+Resend 要求验证域名后才能使用自定义域名作为发件人，这是防止垃圾邮件的安全机制。使用 `@resend.dev` 测试域名可以跳过验证步骤。
+
+---
+
+#### 测试域名收件人限制
+
+错误信息：
+```json
+{
+  "statusCode": 403,
+  "message": "You can only send testing emails to your own email address (jianghao3210@gmail.com). To send emails to other recipients, please verify a domain at resend.com/domains."
+}
+```
+
+错误做法：
+```typescript
+// 尝试发送到任意邮箱
+const { data, error } = await resend.emails.send({
+  from: "onboarding@resend.dev",
+  to: "anyone@example.com",  // 失败！
+})
+```
+
+正确做法：
+```typescript
+// 方案 1：使用账户邮箱测试
+const { data, error } = await resend.emails.send({
+  from: "onboarding@resend.dev",
+  to: "jianghao3210@gmail.com",  // Resend 账户关联的邮箱
+})
+
+// 方案 2：在 Resend 控制台添加测试邮箱
+// 访问 https://app.resend.com/a/audiences 添加收件人
+
+// 方案 3：开发环境降级方案
+if (error && process.env.NODE_ENV === "development") {
+  console.log("验证码:", code)
+  return true
+}
+```
+
+原因：
+使用 `@resend.dev` 测试域名时，只能发送到 Resend 账户关联的邮箱。这是防止滥用测试域名的安全限制。
+
+---
+
+#### 发送间隔配置不合理
+
+错误做法：
+```typescript
+// 开发和 production 都是 5 分钟间隔
+const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+```
+
+正确做法：
+```typescript
+// 根据环境配置不同的发送间隔
+const CODE_EXPIRY_MINUTES = 5
+const RETRY_INTERVAL_SECONDS = process.env.NODE_ENV === "development" ? 30 : 60
+// 开发环境 30 秒，生产环境 60 秒
+
+const retryIntervalAgo = new Date(Date.now() - RETRY_INTERVAL_SECONDS * 1000)
+```
+
+原因：
+5 分钟的发送间隔在开发调试时太长，频繁修改代码后无法立即测试。开发环境应该使用更短的间隔（30 秒），生产环境使用合理间隔（60 秒）防止滥用。
+
+相关文件：
+- `src/app/api/auth/send-code/route.ts` - 发送间隔配置
+
+---
+
+#### 环境变量修改不生效
+
+问题：
+修改 `.env.local` 文件后，Next.js 不会自动重新加载环境变量，导致配置修改不生效。
+
+正确做法：
+```bash
+# 1. 修改 .env.local
+vim .env.local
+
+# 2. 停止开发服务器
+Ctrl+C
+
+# 3. 重新启动服务器
+bun run dev
+```
+
+原因：
+Next.js 只在启动时读取环境变量，运行时修改 `.env.local` 不会自动生效。必须重启服务器才能加载新的环境变量。
+
+---
+
+#### Resend 免费方案限制
+
+开发环境限制：
+- 每月 3,000 封邮件免费
+- 每天 100 封邮件
+- 只能发送到账户邮箱（使用 @resend.dev 域名时）
+- 不适合生产环境
+
+生产环境方案：
+- 购买并验证自定义域名
+- 无收件人限制
+- 品牌化发件人地址
+- 需要配置 DNS 验证
+
+### 字段名不一致导致数据丢失
+
+错误做法：
+```typescript
+// User 类型定义
+interface User {
+  avatar: string  // 字段名是 avatar
+}
+
+// API 接口定义
+interface UpdateProfileInput {
+  avatarUrl: string  // 字段名是 avatarUrl
+}
+
+// 前端直接传递
+updateProfile({
+  avatarUrl: formData.avatarUrl  // 类型不匹配！
+})
+
+// Store 直接透传
+const result = await profileApi.updateProfile(data)  // avatar 字段无法识别
+```
+
+正确做法：
+```typescript
+// User 类型定义
+interface User {
+  avatar: string
+  avatarUrl?: string  // 添加兼容字段
+}
+
+// Store 层做字段映射
+updateProfile: async (data: Partial<User>) => {
+  const { avatar, ...restData } = data
+  const apiData = avatar !== undefined
+    ? { ...restData, avatarUrl: avatar }
+    : restData
+  const result = await profileApi.updateProfile(apiData)
+}
+
+// 前端传递正确字段名
+updateProfile({
+  avatar: formData.avatarUrl  // 使用 User 类型的字段名
+})
+```
+
+原因：
+系统中字段名在不同层使用不同名称（avatar/avatarUrl/avatar_url），直接传递会导致数据丢失或验证失败。应该在数据流转换层（Store/Service）做字段映射，而不是在组件层手动转换。
+
+相关文件：
+- `src/lib/types.ts` - User 类型定义
+- `src/stores/user-store.ts` - updateProfile 字段映射
+- `src/app/profile/edit/page.tsx` - 前端调用
+
+---
+
+### 枚举值格式不一致导致验证失败
+
+错误做法：
+```typescript
+// 数据库存储中文
+gender: '男'  // 或 '女'、'保密'
+
+// Zod schema 验证英文
+const profileSchema = z.object({
+  gender: z.enum(['male', 'female', 'other']).optional()
+})
+
+// 前端发送中文
+await fetch('/api/user/profile', {
+  body: JSON.stringify({ gender: '男' })  // 验证失败！
+})
+```
+
+正确做法：
+```typescript
+// 在 API 验证前标准化格式
+function normalizeGender(gender: unknown): 'male' | 'female' | 'other' | undefined {
+  if (gender === '男' || gender === 'male') return 'male'
+  if (gender === '女' || gender === 'female') return 'female'
+  if (gender === '保密' || gender === 'other' || gender === '其他') return 'other'
+  return undefined
+}
+
+// 验证前转换
+const normalizedBody = {
+  ...body,
+  gender: normalizeGender(body.gender)
+}
+const validatedProfile = profileSchema.safeParse(normalizedBody)
+```
+
+原因：
+数据库存储中文枚举值，但 Zod schema 验证英文枚举值，导致验证失败。应该在 API 边界层统一转换格式，而不是修改数据库或前端。
+
+相关文件：
+- `src/app/api/user/profile/route.ts` - normalizeGender 函数
+
+---
+
+### Next.js Image 组件不支持查询字符串
+
+错误做法：
+```typescript
+// 使用带查询字符串的本地图片
+<Image
+  src="/avatars/user.1234567890.png?t=1234567890"
+  alt="avatar"
+  width={200}
+  height={200}
+/>
+// 报错：Image with src using a query string which is not configured
+```
+
+正确做法：
+```typescript
+// 方案 1：禁用图片优化（简单方案）
+// next.config.ts
+const nextConfig: NextConfig = {
+  images: {
+    unoptimized: true,
+  },
+}
+
+// 方案 2：使用时间戳命名文件
+const timestamp = Date.now()
+const filename = `${userId}.${timestamp}.png`
+const avatarUrl = `/avatars/${filename}`  // 不使用查询字符串
+```
+
+原因：
+Next.js Image 组件默认不允许本地图片使用查询字符串，这是为了安全性和缓存优化。使用 `unoptimized: true` 可以禁用此限制，但会失去 Next.js 的图片优化功能。
+
+相关文件：
+- `next.config.ts` - 图片配置
+- `src/app/api/upload-avatar/route.ts` - 文件命名逻辑
+
+---
+
+### 文件上传缓存问题
+
+错误做法：
+```typescript
+const handleUpload = async (file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  // 没有重置 file input
+  // 上传相同文件不会触发 change 事件
+
+  // 使用固定文件名
+  const filename = `${userId}.png`
+  // 浏览器会使用缓存，显示旧图片
+}
+```
+
+正确做法：
+```typescript
+// 1. 重置 file input
+const fileInputRef = useRef<HTMLInputElement>(null)
+
+const handleUpload = async (file: File) => {
+  // ... 上传逻辑
+} finally {
+  if (fileInputRef.current) {
+    fileInputRef.current.value = ''  // 重置 input
+  }
+}
+
+// 2. 时间戳命名
+const timestamp = Date.now()
+const filename = `${userId}.${timestamp}.png`
+const avatarUrl = `/avatars/${filename}?t=${timestamp}`
+
+// 3. 强制重新渲染
+<Image
+  src={avatarUrl}
+  key={avatarUrl}  // 添加 key prop
+  fill
+  className="object-cover"
+/>
+```
+
+原因：
+File input 不重置会导致选择相同文件时不触发 change 事件，固定文件名会导致浏览器使用缓存。应该使用时间戳生成唯一文件名，并重置 file input。
+
+相关文件：
+- `src/components/user/AvatarUpload.tsx` - 上传组件
+- `src/app/api/upload-avatar/route.ts` - 文件命名逻辑
+
+---
+
+### 认证系统迁移 cookie 不兼容
+
+错误做法：
+```typescript
+// 旧认证系统
+const userId = request.cookies.get('user_id')?.value
+
+// 新认证系统
+const sessionToken = request.cookies.get('next-auth.session-token')?.value
+
+// 系统迁移后，旧 API 无法获取用户 ID
+```
+
+正确做法：
+```typescript
+// 创建统一的认证辅助函数
+export function getUserIdFromRequest(request: NextRequest): string | null {
+  // 优先尝试新系统
+  const sessionToken = request.cookies.get('next-auth.session-token')?.value
+  if (sessionToken) {
+    const decoded = Buffer.from(sessionToken, 'base64').toString()
+    const session = JSON.parse(decoded)
+    if (session.exp && session.exp > Math.floor(Date.now() / 1000)) {
+      return session.userId
+    }
+  }
+
+  // 降级到旧系统（兼容过渡期）
+  return request.cookies.get('user_id')?.value || null
+}
+
+// 所有 API 使用统一函数
+const userId = getUserIdFromRequest(request)
+```
+
+原因：
+认证系统迁移时，新系统使用不同的 cookie 名称，导致旧 API 无法获取用户 ID。应该创建统一的辅助函数，支持新旧两种 cookie 格式，提供过渡期兼容。
+
+相关文件：
+- `src/lib/session.ts` - 统一认证辅助函数
+- `src/app/api/user/profile/route.ts` - 使用新函数
+- `src/app/api/matches/route.ts` - 使用新函数
+- `src/app/api/matches/[matchId]/route.ts` - 使用新函数
+
+---
+
+### Zod .url() 验证过于严格
+
+错误做法：
+```typescript
+// 相对路径会验证失败
+const profileSchema = z.object({
+  avatarUrl: z.string().url().optional()
+})
+
+// 验证失败
+avatarUrl: z.string().url().nonempty()
+// Error: Invalid url
+```
+
+正确做法：
+```typescript
+// 使用 .string() 接受任意字符串
+const profileSchema = z.object({
+  avatarUrl: z.string().optional()
+})
+
+// 如果需要验证 URL，自定义验证器
+const urlOrPathSchema = z.string().refine(
+  (val) => !val || /^https?:\/\//.test(val) || /^\//.test(val),
+  { message: '必须是有效的 URL 或路径' }
+)
+```
+
+原因：
+Zod 的 `.url()` 只接受完整的 http/https URL，不接受相对路径（如 `/avatars/user.png`）。对于头像等字段，应该使用 `.string()` 验证，或自定义验证器接受相对路径。
+
+相关文件：
+- `src/app/api/user/profile/route.ts` - Zod schema 定义
+
+---
+
+### 多表数据同步问题
+
+错误做法：
+```typescript
+// 只更新 user_profiles 表
+const [updatedProfile] = await db
+  .update(userProfiles)
+  .set({
+    name: profile.name,
+    age: profile.age,
+    // ...
+  })
+  .where(eq(userProfiles.userId, userId))
+  .returning()
+
+// users 表的 name 字段没有同步更新
+// 导致 /api/auth/session 返回的名称不一致
+```
+
+正确做法：
+```typescript
+// 同时更新 users 表和 user_profiles 表的 name 字段
+if (profile.name) {
+  await db
+    .update(users)
+    .set({ name: profile.name })
+    .where(eq(users.id, userId))
+}
+
+const [updatedProfile] = await db
+  .update(userProfiles)
+  .set({
+    name: profile.name,
+    age: profile.age,
+    // ...
+  })
+  .where(eq(userProfiles.userId, userId))
+  .returning()
+```
+
+原因：
+NextAuth 的 `users` 表和应用的 `user_profiles` 表都有 `name` 字段，但更新资料时只同步了 `user_profiles` 表，导致两个表的数据不一致。当 `/api/auth/session` 从 `users` 表读取数据时，显示的是旧的名称。应该在更新资料时同时更新两个表的 name 字段。
+
+相关文件：
+- `src/app/api/user/profile/route.ts` - POST 和 PUT 方法
+- `src/lib/db/schema.ts` - users 和 user_profiles 表定义
+
+---
+
 ## 更新日志
 
 - 2025-01-03：添加前端开发踩坑总结，包括 CSS 布局、动画、组件设计等问题
 - 2025-01-03：添加后端开发踩坑总结，包括数据库、嵌入模型、NextAuth 等
+- 2025-01-04：添加邮箱验证码功能踩坑总结，包括 Resend 集成、域名验证等问题
+- 2025-01-04：添加头像上传和资料更新踩坑总结，包括字段名不一致、枚举值格式、Next.js Image 限制、文件缓存、认证系统迁移、Zod 验证等问题
+- 2025-01-04：添加多表数据同步踩坑总结，users 表和 user_profiles 表 name 字段不同步问题
 
 ---
 

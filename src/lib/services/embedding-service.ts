@@ -1,10 +1,8 @@
 /**
- * 向量嵌入服务
+ * 向量嵌入服务 (API 版本)
  *
- * 功能：
- * - 为单个文本生成向量
- * - 为用户兴趣、需求、提供批量生成向量
- * - 调用嵌入模型 API (bge-m3)
+ * 主服务: 硅基流动 (Pro/BAAI/bge-m3)
+ * 备用服务: 阿里云 (text-embedding-v4)
  */
 
 import { db } from '@/lib/db'
@@ -14,71 +12,172 @@ import { eq, and } from 'drizzle-orm'
 // 嵌入向量类型
 export type EmbeddingType = 'interest' | 'need' | 'provide' | 'profile'
 
-// 嵌入 API 配置
-const EMBEDDING_API_URL = process.env.EMBEDDING_API_URL || ''
-const EMBEDDING_API_KEY = process.env.EMBEDDING_API_KEY || ''
+// 服务提供商
+type Provider = 'siliconflow' | 'alibaba'
+
+// API 配置
+const SILICONFLOW_API_URL = 'https://api.siliconflow.cn/v1/embeddings'
+const ALIBABA_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings'
+
+const SILICONFLOW_API_KEY = process.env.SILICONFLOW_API_KEY || ''
+const ALIBABA_API_KEY = process.env.ALIBABA_API_KEY || ''
+
+// 向量维度
+const BGE_M3_DIMENSIONS = 1024
+const TEXT_EMBEDDING_V4_DIMENSIONS = 1024
 
 /**
- * 调用嵌入模型 API 生成向量
- * @param text 输入文本
- * @returns 1024维向量
+ * 调用硅基流动 API 生成向量
  */
-async function generateEmbeddingFromAPI(text: string): Promise<number[]> {
-  if (!EMBEDDING_API_URL) {
-    throw new Error('EMBEDDING_API_URL 环境变量未配置')
+async function generateEmbeddingFromSiliconFlow(text: string): Promise<number[]> {
+  if (!SILICONFLOW_API_KEY) {
+    throw new Error('SILICONFLOW_API_KEY 环境变量未配置')
   }
 
   try {
-    const response = await fetch(EMBEDDING_API_URL, {
+    const response = await fetch(SILICONFLOW_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${EMBEDDING_API_KEY}`,
+        'Authorization': `Bearer ${SILICONFLOW_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'bge-m3',
+        model: 'Pro/BAAI/bge-m3',
         input: text,
         encoding_format: 'float',
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`嵌入 API 调用失败: ${response.statusText}`)
+      const error = await response.text()
+      throw new Error(`硅基流动 API 调用失败: ${response.status} ${error}`)
     }
 
     const data = await response.json()
 
-    // 根据实际 API 响应格式解析
-    // 假设返回格式为 { data: [{ embedding: number[] }] }
-    if (data.data && data.data[0] && data.data[0].embedding) {
-      return data.data[0].embedding
+    if (!data.data || !data.data[0] || !data.data[0].embedding) {
+      throw new Error('硅基流动 API 响应格式不正确')
     }
 
-    throw new Error('嵌入 API 响应格式不正确')
+    const embedding = data.data[0].embedding
+
+    if (embedding.length !== BGE_M3_DIMENSIONS) {
+      throw new Error(`向量维度错误: 期望 ${BGE_M3_DIMENSIONS}, 实际 ${embedding.length}`)
+    }
+
+    return embedding
   } catch (error) {
-    console.error('生成向量失败:', error)
+    console.error('硅基流动 API 调用失败:', error)
+    throw error
+  }
+}
+
+/**
+ * 调用阿里云 API 生成向量 (备用方案)
+ */
+async function generateEmbeddingFromAlibaba(text: string): Promise<number[]> {
+  if (!ALIBABA_API_KEY) {
+    throw new Error('ALIBABA_API_KEY 环境变量未配置')
+  }
+
+  try {
+    const response = await fetch(ALIBABA_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ALIBABA_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-v4',
+        input: text,
+        dimensions: TEXT_EMBEDDING_V4_DIMENSIONS,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`阿里云 API 调用失败: ${response.status} ${error}`)
+    }
+
+    const data = await response.json()
+
+    if (!data.data || !data.data[0] || !data.data[0].embedding) {
+      throw new Error('阿里云 API 响应格式不正确')
+    }
+
+    const embedding = data.data[0].embedding
+
+    if (embedding.length !== TEXT_EMBEDDING_V4_DIMENSIONS) {
+      throw new Error(`向量维度错误: 期望 ${TEXT_EMBEDDING_V4_DIMENSIONS}, 实际 ${embedding.length}`)
+    }
+
+    return embedding
+  } catch (error) {
+    console.error('阿里云 API 调用失败:', error)
     throw error
   }
 }
 
 /**
  * 为单个文本生成向量
- * @param text 输入文本
- * @returns 1024维向量
+ * 优先使用硅基流动，失败时自动切换到阿里云
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   if (!text || text.trim().length === 0) {
     throw new Error('输入文本不能为空')
   }
 
-  return generateEmbeddingFromAPI(text.trim())
+  let lastError: Error | null = null
+
+  // 优先使用硅基流动
+  if (SILICONFLOW_API_KEY) {
+    try {
+      return await generateEmbeddingFromSiliconFlow(text.trim())
+    } catch (error) {
+      console.warn('硅基流动 API 调用失败，尝试备用方案:', error)
+      lastError = error as Error
+    }
+  }
+
+  // 备用方案: 阿里云
+  if (ALIBABA_API_KEY) {
+    try {
+      return await generateEmbeddingFromAlibaba(text.trim())
+    } catch (error) {
+      console.error('阿里云 API 调用失败:', error)
+      lastError = error as Error
+    }
+  }
+
+  // 所有方案都失败
+  throw lastError || new Error('没有可用的嵌入 API 服务')
+}
+
+/**
+ * 批量生成向量
+ */
+export async function generateEmbeddingsBatch(texts: string[]): Promise<number[][]> {
+  if (!texts || texts.length === 0) {
+    return []
+  }
+
+  const results: number[][] = []
+
+  for (const text of texts) {
+    try {
+      const embedding = await generateEmbedding(text)
+      results.push(embedding)
+    } catch (error) {
+      console.error(`生成向量失败 (${text}):`, error)
+      // 失败时跳过，不中断整个批处理
+    }
+  }
+
+  return results
 }
 
 /**
  * 为用户兴趣生成向量记录
- * @param userId 用户ID
- * @param interests 兴趣数组
- * @returns 创建的向量记录数量
  */
 export async function generateUserInterestsEmbeddings(
   userId: string,
@@ -91,7 +190,6 @@ export async function generateUserInterestsEmbeddings(
     if (!interest) continue
 
     try {
-      // 检查是否已存在
       const [existing] = await db
         .select()
         .from(userEmbeddings)
@@ -105,7 +203,6 @@ export async function generateUserInterestsEmbeddings(
         .limit(1)
 
       if (existing) {
-        // 更新现有记录
         await db.update(userEmbeddings)
           .set({
             sourceText: interest,
@@ -114,7 +211,6 @@ export async function generateUserInterestsEmbeddings(
           })
           .where(eq(userEmbeddings.id, existing.id))
       } else {
-        // 创建新记录（状态为 pending，向量由后台任务生成）
         await db.insert(userEmbeddings).values({
           userId,
           embeddingType: 'interest',
@@ -135,9 +231,6 @@ export async function generateUserInterestsEmbeddings(
 
 /**
  * 为用户需求生成向量记录
- * @param userId 用户ID
- * @param needs 需求数组
- * @returns 创建的向量记录数量
  */
 export async function generateUserNeedsEmbeddings(
   userId: string,
@@ -191,9 +284,6 @@ export async function generateUserNeedsEmbeddings(
 
 /**
  * 为用户提供生成向量记录
- * @param userId 用户ID
- * @param provides 提供数组
- * @returns 创建的向量记录数量
  */
 export async function generateUserProvidesEmbeddings(
   userId: string,
@@ -247,9 +337,6 @@ export async function generateUserProvidesEmbeddings(
 
 /**
  * 为用户所有资料生成向量记录
- * @param userId 用户ID
- * @param profile 用户资料
- * @returns 各类型生成的向量记录数量
  */
 export async function generateUserProfileEmbeddings(
   userId: string,
@@ -268,4 +355,27 @@ export async function generateUserProfileEmbeddings(
   const provides = await generateUserProvidesEmbeddings(userId, profile.provide || [])
 
   return { interests, needs, provides }
+}
+
+// 导出当前使用的提供商
+export function getCurrentProvider(): Provider {
+  return SILICONFLOW_API_KEY ? 'siliconflow' : 'alibaba'
+}
+
+// 导出模型信息
+export function getModelInfo() {
+  return {
+    primary: {
+      provider: 'siliconflow' as Provider,
+      model: 'Pro/BAAI/bge-m3',
+      dimensions: BGE_M3_DIMENSIONS,
+      maxTokens: 8192,
+    },
+    fallback: {
+      provider: 'alibaba' as Provider,
+      model: 'text-embedding-v4',
+      dimensions: TEXT_EMBEDDING_V4_DIMENSIONS,
+      maxTokens: 2048,
+    },
+  }
 }

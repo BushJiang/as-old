@@ -2,112 +2,140 @@
  * 认证状态管理
  *
  * 管理用户登录、注册和认证状态
+ * 支持邮箱验证码登录和密码登录
  */
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { AuthState, AuthUser } from '@/lib/types'
 
-// 内部类型：用于 mock 认证存储（包含密码）
-// 注意：实际项目中密码应该在后端使用 bcrypt 等方式哈希存储
-interface InternalAuthUser extends AuthUser {
-  password: string
-}
-
-// 初始用户数据库（实际项目中应使用真实的数据库）
-const INITIAL_MOCK_USERS: InternalAuthUser[] = [
-  {
-    id: 'a1b2c3d4-e5f6-4a5b-8c7d-9e0f1a2b3c4d',
-    email: 'test@example.com',
-    password: '123456',
-    hasCompletedProfile: true,
-  },
-  {
-    id: 'b2c3d4e5-f6a7-5b6c-9d8e-0f1a2b3c4d5e',
-    email: 'user@example.com',
-    password: 'password',
-    hasCompletedProfile: false,
-  },
-]
-
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       isAuthenticated: false,
       user: null,
-      mockUsers: INITIAL_MOCK_USERS,
 
-      // 检查用户是否存在
-      checkUserExists: (email: string) => {
-        return get().mockUsers.some(u => u.email === email)
-      },
-
-      // 登录
-      login: async (email: string, password: string) => {
-        // 模拟API调用延迟
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        const user = get().mockUsers.find(
-          u => u.email === email && u.password === password
-        )
-
-        if (user) {
-          set({
-            isAuthenticated: true,
-            user: {
-              id: user.id,
-              email: user.email,
-              hasCompletedProfile: user.hasCompletedProfile,
-            },
+      // 检查邮箱是否已存在
+      checkEmailExists: async (email: string) => {
+        try {
+          const response = await fetch('/api/auth/check-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
           })
-          return true
-        }
 
-        return false
+          const result = await response.json()
+
+          if (!response.ok) {
+            console.error('检查邮箱失败:', result.error)
+            return { exists: false, error: result.error }
+          }
+
+          return { exists: result.exists }
+        } catch (error) {
+          console.error('检查邮箱错误:', error)
+          return { exists: false, error: '网络错误，请重试' }
+        }
       },
 
-      // 注册
-      register: async (email: string, password: string) => {
-        // 模拟API调用延迟
-        await new Promise(resolve => setTimeout(resolve, 500))
+      // 发送验证码到邮箱
+      sendVerificationCode: async (email: string) => {
+        try {
+          const response = await fetch('/api/auth/send-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          })
 
-        // 检查邮箱是否已存在
-        const exists = get().mockUsers.some(u => u.email === email)
-        if (exists) {
+          const result = await response.json()
+
+          if (!response.ok) {
+            console.error('发送验证码失败:', result.error)
+            return { success: false, error: result.error }
+          }
+
+          return { success: true }
+        } catch (error) {
+          console.error('发送验证码错误:', error)
+          return { success: false, error: '网络错误，请重试' }
+        }
+      },
+
+      // 使用验证码登录
+      loginWithCode: async (email: string, code: string) => {
+        try {
+          const response = await fetch('/api/auth/verify-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code }),
+          })
+
+          const result = await response.json()
+
+          if (!response.ok) {
+            console.error('验证失败:', result.error)
+            return { success: false, error: result.error }
+          }
+
+          if (result.user) {
+            set({
+              isAuthenticated: true,
+              user: {
+                id: result.user.id,
+                email: result.user.email,
+                hasCompletedProfile: false,
+              },
+            })
+          }
+
+          return { success: true }
+        } catch (error) {
+          console.error('登录错误:', error)
+          return { success: false, error: '网络错误，请重试' }
+        }
+      },
+
+      // 密码登录（保留作为备选）
+      login: async (email: string, password: string) => {
+        try {
+          const response = await fetch('/api/auth/signin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          })
+
+          const result = await response.json()
+
+          if (!response.ok) {
+            return false
+          }
+
+          // 登录成功，重新获取会话
+          await get().initializeSession()
+          return true
+        } catch (error) {
+          console.error('登录错误:', error)
           return false
         }
+      },
 
-        // 创建新用户
-        const newUser: InternalAuthUser = {
-          id: crypto.randomUUID(),
-          email,
-          password,
-          hasCompletedProfile: false,
-        }
-
-        // 持久化到 state
-        set((state) => ({
-          mockUsers: [...state.mockUsers, newUser]
-        }))
-
-        set({
-          isAuthenticated: true,
-          user: {
-            id: newUser.id,
-            email: newUser.email,
-            hasCompletedProfile: false,
-          },
-        })
-
-        return true
+      // 注册（发送验证码）
+      register: async (email: string) => {
+        return await get().sendVerificationCode(email)
       },
 
       // 登出
-      logout: () => {
-        set({
-          isAuthenticated: false,
-          user: null,
-        })
+      logout: async () => {
+        try {
+          await fetch('/api/auth/signout', { method: 'POST' })
+        } catch (error) {
+          console.error('登出错误:', error)
+        } finally {
+          set({
+            isAuthenticated: false,
+            user: null,
+          })
+        }
       },
 
       // 完成个人信息填写
@@ -122,6 +150,36 @@ export const useAuthStore = create<AuthState>()(
           })
         }
       },
+
+      // 初始化会话（页面加载时检查登录状态）
+      initializeSession: async () => {
+        try {
+          const response = await fetch('/api/auth/session')
+          const sessionResult = await response.json()
+
+          if (sessionResult?.user) {
+            set({
+              isAuthenticated: true,
+              user: {
+                id: sessionResult.user.id,
+                email: sessionResult.user.email,
+                hasCompletedProfile: false,
+              },
+            })
+          } else {
+            set({
+              isAuthenticated: false,
+              user: null,
+            })
+          }
+        } catch (error) {
+          console.error('初始化会话失败:', error)
+          set({
+            isAuthenticated: false,
+            user: null,
+          })
+        }
+      },
     }),
     {
       name: 'auth-storage',
@@ -129,7 +187,6 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         user: state.user,
-        mockUsers: state.mockUsers,
       }),
     }
   )

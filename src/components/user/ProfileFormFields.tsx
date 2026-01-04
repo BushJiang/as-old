@@ -49,6 +49,13 @@ export function ProfileFormFields({
     avatarUrl: initialData?.avatar || "/avatars/default.svg",
   });
 
+  // 字段验证错误
+  const [fieldErrors, setFieldErrors] = useState<{
+    interests?: string;
+    needs?: string;
+    provide?: string;
+  }>({});
+
   // 为每个输入框创建 ref
   const nameRef = useRef<HTMLInputElement>(null);
   const ageRef = useRef<HTMLInputElement>(null);
@@ -79,6 +86,25 @@ export function ProfileFormFields({
     const newData = { ...formData, [field]: value };
     setFormData(newData);
     onChange(newData);
+
+    // 实时验证行数限制
+    if (field === 'interestsText' || field === 'needsText' || field === 'provideText') {
+      const lines = value.split('\n').map(line => line.trim()).filter(line => line);
+      const fieldName = field === 'interestsText' ? 'interests' : field === 'needsText' ? 'needs' : 'provide';
+      const fieldLabel = field === 'interestsText' ? '兴趣爱好' : field === 'needsText' ? '需求' : '提供';
+
+      if (lines.length > 4) {
+        setFieldErrors(prev => ({
+          ...prev,
+          [fieldName]: `${fieldLabel}最多只能输入4个，当前${lines.length}个`
+        }));
+      } else {
+        setFieldErrors(prev => ({
+          ...prev,
+          [fieldName]: undefined
+        }));
+      }
+    }
   };
 
   // 验证并返回处理后的数据
@@ -259,7 +285,7 @@ export function ProfileFormFields({
           <option value="">请选择</option>
           <option value="male">男</option>
           <option value="female">女</option>
-          <option value="other">其他</option>
+          <option value="other">保密</option>
         </select>
       </div>
 
@@ -299,7 +325,11 @@ export function ProfileFormFields({
           onChange={(e) => handleChange("interestsText", e.target.value)}
           required
           rows={4}
+          className={fieldErrors.interests ? "border-red-500" : ""}
         />
+        {fieldErrors.interests && (
+          <p className="text-sm text-red-600">{fieldErrors.interests}</p>
+        )}
       </div>
 
       <div className="grid gap-2">
@@ -312,7 +342,11 @@ export function ProfileFormFields({
           onChange={(e) => handleChange("needsText", e.target.value)}
           required
           rows={4}
+          className={fieldErrors.needs ? "border-red-500" : ""}
         />
+        {fieldErrors.needs && (
+          <p className="text-sm text-red-600">{fieldErrors.needs}</p>
+        )}
       </div>
 
       <div className="grid gap-2">
@@ -325,7 +359,11 @@ export function ProfileFormFields({
           onChange={(e) => handleChange("provideText", e.target.value)}
           required
           rows={4}
+          className={fieldErrors.provide ? "border-red-500" : ""}
         />
+        {fieldErrors.provide && (
+          <p className="text-sm text-red-600">{fieldErrors.provide}</p>
+        )}
       </div>
 
       {error && (

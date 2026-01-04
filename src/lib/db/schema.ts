@@ -259,8 +259,33 @@ export const users = pgTable('users', {
 })
 
 // ============================================
+// 邮箱验证码表
+// ============================================
+export const emailVerificationCodes = pgTable(
+  'email_verification_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: varchar('email', { length: 255 }).notNull(),
+    code: varchar('code', { length: 6 }).notNull(), // 6位验证码
+    expiresAt: timestamp('expires_at').notNull(), // 过期时间（通常5分钟）
+    verifiedAt: timestamp('verified_at'), // 验证时间
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => ({
+    // 索引：按邮箱和创建时间查询，方便清理过期验证码
+    emailCreatedAtIdx: index('idx_email_codes_email_created').on(
+      table.email,
+      table.createdAt,
+    ),
+  }),
+)
+
+// ============================================
 // Type Exports
 // ============================================
+export type EmailVerificationCode = typeof emailVerificationCodes.$inferSelect
+export type NewEmailVerificationCode = typeof emailVerificationCodes.$inferInsert
+
 export type UserProfile = typeof userProfiles.$inferSelect
 export type NewUserProfile = typeof userProfiles.$inferInsert
 
