@@ -23,10 +23,10 @@ interface MigrationStats {
   errors: Array<{ userId: string; name: string; error: string }>
 }
 
-// 配置
-const BATCH_SIZE = 10 // 每批并发请求数量
-const API_DELAY = 100 // API 调用间隔（毫秒）
-const DELAY_BETWEEN_BATCHES = 1000 // 批次间延迟（毫秒）
+// 配置（稳定性优化：减少并发以应对网络问题）
+const BATCH_SIZE = 3 // 每批并发请求数量（减少以提高稳定性）
+const API_DELAY = 200 // API 调用间隔（毫秒，增加延迟避免连接问题）
+const DELAY_BETWEEN_BATCHES = 2000 // 批次间延迟（毫秒，增加延迟）
 
 /**
  * 批量生成向量（控制并发）
@@ -76,8 +76,8 @@ async function generateEmbeddingsBatch(texts: Array<{ id: string; text: string }
  * 批量更新数据库
  */
 async function batchUpdateDatabase(embeddings: Array<{ id: string; vector: number[] }>) {
-  // 分批更新（每批 20 个）
-  const UPDATE_BATCH_SIZE = 20
+  // 分批更新（每批 10 个，减少并发压力）
+  const UPDATE_BATCH_SIZE = 10
 
   for (let i = 0; i < embeddings.length; i += UPDATE_BATCH_SIZE) {
     const batch = embeddings.slice(i, i + UPDATE_BATCH_SIZE)

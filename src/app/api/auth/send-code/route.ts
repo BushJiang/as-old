@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     if (existingCode) {
       // 如果在重试间隔内，不重复发送
       const remainingSeconds = Math.ceil(
-        RETRY_INTERVAL_SECONDS - (Date.now() - new Date(existingCode.createdAt).getTime()) / 1000
+        RETRY_INTERVAL_SECONDS - (Date.now() - new Date(existingCode.createdAt ?? new Date()).getTime()) / 1000
       )
 
       return NextResponse.json(

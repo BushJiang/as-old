@@ -203,6 +203,12 @@ export async function generateUserInterestsEmbeddings(
         .limit(1)
 
       if (existing) {
+        // 如果向量已经完成，跳过不重新生成
+        if (existing.embeddingGenerationStatus === 'completed') {
+          count++
+          continue
+        }
+        // 只更新 pending 或 failed 状态的向量
         await db.update(userEmbeddings)
           .set({
             sourceText: interest,
@@ -256,6 +262,12 @@ export async function generateUserNeedsEmbeddings(
         .limit(1)
 
       if (existing) {
+        // 如果向量已经完成，跳过不重新生成
+        if (existing.embeddingGenerationStatus === 'completed') {
+          count++
+          continue
+        }
+        // 只更新 pending 或 failed 状态的向量
         await db.update(userEmbeddings)
           .set({
             sourceText: need,
@@ -309,6 +321,12 @@ export async function generateUserProvidesEmbeddings(
         .limit(1)
 
       if (existing) {
+        // 如果向量已经完成，跳过不重新生成
+        if (existing.embeddingGenerationStatus === 'completed') {
+          count++
+          continue
+        }
+        // 只更新 pending 或 failed 状态的向量
         await db.update(userEmbeddings)
           .set({
             sourceText: provide,

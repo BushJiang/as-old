@@ -10,10 +10,11 @@
 import { db } from '@/lib/db'
 import { userEmbeddings, userProfiles, users } from '@/lib/db/schema'
 import { eq, and, sql, desc, ne, gt, isNotNull, inArray } from 'drizzle-orm'
-import { vectorCosineDistance, calculateAverageVector } from '@/lib/db/vector'
+import { vectorCosineDistance, calculateAverageVector, cosineDistance } from '@/lib/db/vector'
 import type { InterestMatchDetail } from '@/lib/types'
 
 export interface MatchResult {
+  // 用户基本信息（用于显示在卡片右侧）
   userId: string
   name: string
   age: number
@@ -23,14 +24,18 @@ export interface MatchResult {
   interests: string[]
   needs: string[]
   provide: string[]
+
+  // 当前匹配对的详细信息（必填，用于显示在卡片左侧）
+  matchDetail: InterestMatchDetail
+
+  // 相似度（与 matchDetail.similarityPercent/100 一致）
   similarity: number
-  matchReasons: {
+
+  // 保留用于向后兼容
+  matchReasons?: {
     commonInterests: string[]
     complementaryNeeds: { myNeed: string; theirProvide: string }[]
   }
-  // 新增：详细的匹配信息（用于兴趣相投匹配）
-  bestMatch?: InterestMatchDetail  // 最佳匹配（相似度最高的兴趣对）
-  allMatches?: InterestMatchDetail[]  // 所有匹配详情
 }
 
 // 每个兴趣搜索前 N 个最相似的结果（可调整）
@@ -191,13 +196,11 @@ export async function findSimilarInterests(
         needs: profile.needs || [],
         provide: profile.provide || [],
         similarity: match.similarityPercent / 100, // 转换回 0-1 范围
+        matchDetail: match, // 当前匹配对的详细信息
         matchReasons: {
           commonInterests: [match.theirInterest],
           complementaryNeeds: [],
         },
-        // 添加详细的匹配信息
-        bestMatch: match,
-        allMatches: [match], // 每个卡片只有一个匹配
       })
     }
   }
@@ -256,27 +259,35 @@ async function findSimilarInterestsByText(
     .from(userProfiles)
     .where(inArray(userProfiles.userId, matchedUserIds))
 
-  // 构建结果
+  // 构建结果（每个匹配对都是独立的卡片）
   const results: MatchResult[] = []
   for (const [userId, matchInfo] of sortedMatches) {
     const profile = profiles.find(p => p.userId === userId)
     if (profile) {
-      results.push({
-        userId: profile.userId,
-        name: profile.name,
-        age: profile.age,
-        city: profile.city || '',
-        avatar: profile.avatarUrl || '',
-        bio: profile.bio || '',
-        interests: profile.interests || [],
-        needs: profile.needs || [],
-        provide: profile.provide || [],
-        similarity: matchInfo.count / Math.max(myInterestTexts.length, 1),
-        matchReasons: {
-          commonInterests: matchInfo.commonInterests,
-          complementaryNeeds: [],
-        },
-      })
+      // 为每个共同兴趣创建一个匹配卡片
+      for (const commonInterest of matchInfo.commonInterests) {
+        results.push({
+          userId: profile.userId,
+          name: profile.name,
+          age: profile.age,
+          city: profile.city || '',
+          avatar: profile.avatarUrl || '',
+          bio: profile.bio || '',
+          interests: profile.interests || [],
+          needs: profile.needs || [],
+          provide: profile.provide || [],
+          similarity: matchInfo.count / Math.max(myInterestTexts.length, 1),
+          matchDetail: {
+            myInterest: commonInterest,
+            theirInterest: commonInterest,
+            similarityPercent: (matchInfo.count / Math.max(myInterestTexts.length, 1)) * 100,
+          },
+          matchReasons: {
+            commonInterests: matchInfo.commonInterests,
+            complementaryNeeds: [],
+          },
+        })
+      }
     }
   }
 
@@ -339,11 +350,12 @@ export async function findMutualNeeds(
     LIMIT ${limit * 3}
   `)
 
-  // 按用户聚合并计算平均距离
+  // 按用户聚合并计算平均距离，同时记录每个提供文本的距离
   const userDistanceMap = new Map<string, {
     distance: number
     count: number
     texts: string[]
+    provideDistances: Array<{ text: string; distance: number }>
   }>()
 
   for (const row of matches.rows) {
@@ -354,11 +366,13 @@ export async function findMutualNeeds(
     const existing = userDistanceMap.get(userId) || {
       distance: 0,
       count: 0,
-      texts: []
+      texts: [],
+      provideDistances: []
     }
     existing.distance += distance ?? 0
     existing.count++
     existing.texts.push(sourceText)
+    existing.provideDistances.push({ text: sourceText, distance: distance ?? 0 })
     userDistanceMap.set(userId, existing)
   }
 
@@ -368,6 +382,7 @@ export async function findMutualNeeds(
       userId,
       avgDistance: data.distance / data.count,
       provideTexts: data.texts,
+      provideDistances: data.provideDistances,
       similarity: 1 - data.distance / data.count, // 余弦距离转相似度
     }))
     .sort((a, b) => b.similarity - a.similarity)
@@ -400,18 +415,53 @@ export async function findMutualNeeds(
         }
       }
 
-      // 生成 bestMatch（使用第一个互补需求对）
-      const bestMatch = complementaryNeeds.length > 0
-        ? {
-            myInterest: complementaryNeeds[0].myNeed,
-            theirInterest: complementaryNeeds[0].theirProvide,
-            similarityPercent: match.similarity * 100,
+      // 生成 bestMatch
+      let bestMatch: { myInterest: string; theirInterest: string; similarityPercent: number }
+      if (complementaryNeeds.length > 0) {
+        // 有精确文本匹配，使用第一个
+        bestMatch = {
+          myInterest: complementaryNeeds[0].myNeed,
+          theirInterest: complementaryNeeds[0].theirProvide,
+          similarityPercent: match.similarity * 100,
+        }
+      } else {
+        // 无精确匹配：找到语义上最匹配的需求-提供对
+        // 获取该用户的提供向量，与我的每个需求向量计算距离
+        const theirProvides = await db
+          .select()
+          .from(userEmbeddings)
+          .where(
+            and(
+              eq(userEmbeddings.userId, match.userId),
+              eq(userEmbeddings.embeddingType, 'provide'),
+              eq(userEmbeddings.embeddingGenerationStatus, 'completed')
+            )
+          )
+
+        let bestPair: { myNeed: string; theirProvide: string; distance: number } | null = null
+
+        // 遍历我的需求向量和他们的提供向量，找最小距离
+        for (const myNeed of myNeeds) {
+          if (!myNeed.embedding) continue
+          for (const theirProvide of theirProvides) {
+            if (!theirProvide.embedding) continue
+            const distance = cosineDistance(myNeed.embedding, theirProvide.embedding)
+            if (!bestPair || distance < bestPair.distance) {
+              bestPair = {
+                myNeed: myNeed.sourceText,
+                theirProvide: theirProvide.sourceText,
+                distance
+              }
+            }
           }
-        : {
-            myInterest: myNeedTexts[0] || '需求',
-            theirInterest: match.provideTexts[0] || '提供',
-            similarityPercent: match.similarity * 100,
-          }
+        }
+
+        bestMatch = {
+          myInterest: bestPair?.myNeed || myNeedTexts[0] || '需求',
+          theirInterest: bestPair?.theirProvide || match.provideTexts[0] || '提供',
+          similarityPercent: match.similarity * 100,
+        }
+      }
 
       results.push({
         userId: profile.userId,
@@ -424,13 +474,11 @@ export async function findMutualNeeds(
         needs: profile.needs || [],
         provide: profile.provide || [],
         similarity: match.similarity,
+        matchDetail: bestMatch, // 当前匹配对的详细信息
         matchReasons: {
           commonInterests: [],
           complementaryNeeds,
         },
-        // 添加详细的匹配信息
-        bestMatch,
-        allMatches: [bestMatch],
       })
     }
   }
@@ -496,43 +544,35 @@ async function findMutualNeedsByText(
     .from(userProfiles)
     .where(inArray(userProfiles.userId, matchedUserIds))
 
-  // 构建结果
+  // 构建结果（每个匹配对都是独立的卡片）
   const results: MatchResult[] = []
   for (const [userId, matchInfo] of sortedMatches) {
     const profile = profiles.find(p => p.userId === userId)
     if (profile) {
-      // 生成 bestMatch
-      const bestMatch = matchInfo.complementaryNeeds.length > 0
-        ? {
-            myInterest: matchInfo.complementaryNeeds[0].myNeed,
-            theirInterest: matchInfo.complementaryNeeds[0].theirProvide,
+      // 为每个需求-提供匹配对创建一个卡片
+      for (const { myNeed, theirProvide } of matchInfo.complementaryNeeds) {
+        results.push({
+          userId: profile.userId,
+          name: profile.name,
+          age: profile.age,
+          city: profile.city || '',
+          avatar: profile.avatarUrl || '',
+          bio: profile.bio || '',
+          interests: profile.interests || [],
+          needs: profile.needs || [],
+          provide: profile.provide || [],
+          similarity: matchInfo.count / Math.max(myNeedTexts.length, 1),
+          matchDetail: {
+            myInterest: myNeed,
+            theirInterest: theirProvide,
             similarityPercent: 50, // 文本匹配的默认相似度
-          }
-        : {
-            myInterest: myNeedTexts[0] || '需求',
-            theirInterest: '提供',
-            similarityPercent: 30,
-          }
-
-      results.push({
-        userId: profile.userId,
-        name: profile.name,
-        age: profile.age,
-        city: profile.city || '',
-        avatar: profile.avatarUrl || '',
-        bio: profile.bio || '',
-        interests: profile.interests || [],
-        needs: profile.needs || [],
-        provide: profile.provide || [],
-        similarity: matchInfo.count / Math.max(myNeedTexts.length, 1),
-        matchReasons: {
-          commonInterests: [],
-          complementaryNeeds: matchInfo.complementaryNeeds,
-        },
-        // 添加详细的匹配信息
-        bestMatch,
-        allMatches: [bestMatch],
-      })
+          },
+          matchReasons: {
+            commonInterests: [],
+            complementaryNeeds: matchInfo.complementaryNeeds,
+          },
+        })
+      }
     }
   }
 
@@ -563,11 +603,19 @@ export async function findComprehensiveMatches(
   for (const match of similarInterests) {
     const existing = userMatchMap.get(match.userId)
     if (existing) {
-      // 合并相似度和匹配原因
+      // 合并相似度
       existing.similarity = Math.max(existing.similarity, match.similarity)
+      // 确保 matchReasons 存在
+      if (!existing.matchReasons) {
+        existing.matchReasons = { commonInterests: [], complementaryNeeds: [] }
+      }
+      if (!match.matchReasons) {
+        match.matchReasons = { commonInterests: [], complementaryNeeds: [] }
+      }
+      // 合并匹配原因
       existing.matchReasons.commonInterests = [
         ...existing.matchReasons.commonInterests,
-        ...match.matchReasons.commonInterests,
+        ...(match.matchReasons.commonInterests || []),
       ]
     } else {
       userMatchMap.set(match.userId, match)
@@ -577,10 +625,19 @@ export async function findComprehensiveMatches(
   for (const match of mutualNeeds) {
     const existing = userMatchMap.get(match.userId)
     if (existing) {
+      // 合并相似度
       existing.similarity = Math.max(existing.similarity, match.similarity)
+      // 确保 matchReasons 存在
+      if (!existing.matchReasons) {
+        existing.matchReasons = { commonInterests: [], complementaryNeeds: [] }
+      }
+      if (!match.matchReasons) {
+        match.matchReasons = { commonInterests: [], complementaryNeeds: [] }
+      }
+      // 合并匹配原因
       existing.matchReasons.complementaryNeeds = [
         ...existing.matchReasons.complementaryNeeds,
-        ...match.matchReasons.complementaryNeeds,
+        ...(match.matchReasons.complementaryNeeds || []),
       ]
     } else {
       userMatchMap.set(match.userId, match)
@@ -717,13 +774,11 @@ export async function findExploratoryDiscovery(
         needs: profile.needs || [],
         provide: profile.provide || [],
         similarity: match.similarity, // 这里的相似度会很低
+        matchDetail: bestMatch, // 当前匹配对的详细信息
         matchReasons: {
           commonInterests: [], // 探索发现没有共同兴趣
           complementaryNeeds: [],
         },
-        // 添加详细的匹配信息
-        bestMatch,
-        allMatches: [bestMatch],
       })
     }
   }
@@ -787,11 +842,12 @@ export async function findMutualProvide(
     LIMIT ${limit * 3}
   `)
 
-  // 按用户聚合并计算平均距离
+  // 按用户聚合并计算平均距离，同时记录每个需求文本的距离
   const userDistanceMap = new Map<string, {
     distance: number
     count: number
     texts: string[]
+    needDistances: Array<{ text: string; distance: number }>
   }>()
 
   for (const row of matches.rows) {
@@ -802,11 +858,13 @@ export async function findMutualProvide(
     const existing = userDistanceMap.get(userId) || {
       distance: 0,
       count: 0,
-      texts: []
+      texts: [],
+      needDistances: []
     }
     existing.distance += distance ?? 0
     existing.count++
     existing.texts.push(sourceText)
+    existing.needDistances.push({ text: sourceText, distance: distance ?? 0 })
     userDistanceMap.set(userId, existing)
   }
 
@@ -816,6 +874,7 @@ export async function findMutualProvide(
       userId,
       avgDistance: data.distance / data.count,
       needTexts: data.texts,
+      needDistances: data.needDistances,
       similarity: 1 - data.distance / data.count,
     }))
     .sort((a, b) => b.similarity - a.similarity)
@@ -849,17 +908,52 @@ export async function findMutualProvide(
       }
 
       // 生成 bestMatch
-      const bestMatch = complementaryNeeds.length > 0
-        ? {
-            myInterest: complementaryNeeds[0].myNeed,
-            theirInterest: complementaryNeeds[0].theirProvide,
-            similarityPercent: match.similarity * 100,
+      let bestMatch: { myInterest: string; theirInterest: string; similarityPercent: number }
+      if (complementaryNeeds.length > 0) {
+        // 有精确文本匹配，使用第一个
+        bestMatch = {
+          myInterest: complementaryNeeds[0].myNeed,
+          theirInterest: complementaryNeeds[0].theirProvide,
+          similarityPercent: match.similarity * 100,
+        }
+      } else {
+        // 无精确匹配：找到语义上最匹配的提供-需求对
+        // 获取该用户的需求向量，与我的每个提供向量计算距离
+        const theirNeeds = await db
+          .select()
+          .from(userEmbeddings)
+          .where(
+            and(
+              eq(userEmbeddings.userId, match.userId),
+              eq(userEmbeddings.embeddingType, 'need'),
+              eq(userEmbeddings.embeddingGenerationStatus, 'completed')
+            )
+          )
+
+        let bestPair: { myProvide: string; theirNeed: string; distance: number } | null = null
+
+        // 遍历我的提供向量和他们的需求向量，找最小距离
+        for (const myProvide of myProvides) {
+          if (!myProvide.embedding) continue
+          for (const theirNeed of theirNeeds) {
+            if (!theirNeed.embedding) continue
+            const distance = cosineDistance(myProvide.embedding, theirNeed.embedding)
+            if (!bestPair || distance < bestPair.distance) {
+              bestPair = {
+                myProvide: myProvide.sourceText,
+                theirNeed: theirNeed.sourceText,
+                distance
+              }
+            }
           }
-        : {
-            myInterest: myProvideTexts[0] || '提供',
-            theirInterest: match.needTexts[0] || '需求',
-            similarityPercent: match.similarity * 100,
-          }
+        }
+
+        bestMatch = {
+          myInterest: bestPair?.myProvide || myProvideTexts[0] || '提供',
+          theirInterest: bestPair?.theirNeed || match.needTexts[0] || '需求',
+          similarityPercent: match.similarity * 100,
+        }
+      }
 
       results.push({
         userId: profile.userId,
@@ -872,13 +966,11 @@ export async function findMutualProvide(
         needs: profile.needs || [],
         provide: profile.provide || [],
         similarity: match.similarity,
+        matchDetail: bestMatch, // 当前匹配对的详细信息
         matchReasons: {
           commonInterests: [],
           complementaryNeeds,
         },
-        // 添加详细的匹配信息
-        bestMatch,
-        allMatches: [bestMatch],
       })
     }
   }
@@ -944,43 +1036,35 @@ async function findMutualProvideByText(
     .from(userProfiles)
     .where(inArray(userProfiles.userId, matchedUserIds))
 
-  // 构建结果
+  // 构建结果（每个匹配对都是独立的卡片）
   const results: MatchResult[] = []
   for (const [userId, matchInfo] of sortedMatches) {
     const profile = profiles.find(p => p.userId === userId)
     if (profile) {
-      // 生成 bestMatch
-      const bestMatch = matchInfo.complementaryNeeds.length > 0
-        ? {
-            myInterest: matchInfo.complementaryNeeds[0].myNeed,
-            theirInterest: matchInfo.complementaryNeeds[0].theirProvide,
+      // 为每个提供-需求匹配对创建一个卡片
+      for (const { myNeed, theirProvide } of matchInfo.complementaryNeeds) {
+        results.push({
+          userId: profile.userId,
+          name: profile.name,
+          age: profile.age,
+          city: profile.city || '',
+          avatar: profile.avatarUrl || '',
+          bio: profile.bio || '',
+          interests: profile.interests || [],
+          needs: profile.needs || [],
+          provide: profile.provide || [],
+          similarity: matchInfo.count / Math.max(myProvideTexts.length, 1),
+          matchDetail: {
+            myInterest: theirProvide,
+            theirInterest: myNeed,
             similarityPercent: 50, // 文本匹配的默认相似度
-          }
-        : {
-            myInterest: myProvideTexts[0] || '提供',
-            theirInterest: '需求',
-            similarityPercent: 30,
-          }
-
-      results.push({
-        userId: profile.userId,
-        name: profile.name,
-        age: profile.age,
-        city: profile.city || '',
-        avatar: profile.avatarUrl || '',
-        bio: profile.bio || '',
-        interests: profile.interests || [],
-        needs: profile.needs || [],
-        provide: profile.provide || [],
-        similarity: matchInfo.count / Math.max(myProvideTexts.length, 1),
-        matchReasons: {
-          commonInterests: [],
-          complementaryNeeds: matchInfo.complementaryNeeds,
-        },
-        // 添加详细的匹配信息
-        bestMatch,
-        allMatches: [bestMatch],
-      })
+          },
+          matchReasons: {
+            commonInterests: [],
+            complementaryNeeds: matchInfo.complementaryNeeds,
+          },
+        })
+      }
     }
   }
 

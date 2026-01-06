@@ -1,4 +1,5 @@
 {
+  "hooks": {},
   "skills": {
     "enabled": true,
     "allowUserInvokedSkills": true,
@@ -15,8 +16,12 @@
       "pitfall_summary"
     ]
   },
-  "hooks": {},
   "mcp": {
     "enabled": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(bun run:*)"
+    ]
   }
 }

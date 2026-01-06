@@ -20,7 +20,7 @@ interface UserProfilesMap {
 // 创建默认用户数据
 const createDefaultUser = (userId: string): User => ({
   id: userId,
-  name: '测试账号',
+  name: '陈思远',
   age: 26,
   gender: undefined,
   city: '北京',
@@ -165,6 +165,26 @@ export const useUserStore = create<UserState>()(
       },
 
       /**
+       * 从缓存设置匹配结果（不调用 API）
+       */
+      setMatchesFromCache: (mode: 'similar-interests' | 'mutual-needs' | 'mutual-provide' | 'exploratory-discovery', users: User[], matchResults: MatchResult[]) => {
+        console.log('从缓存恢复匹配数据，模式:', mode)
+        set({
+          potentialMatches: users,
+          potentialMatchesWithDetails: matchResults,
+        })
+
+        // 更新用户资料映射
+        set((state) => {
+          const newProfilesMap = { ...state.userProfilesMap }
+          users.forEach(user => {
+            newProfilesMap[user.id] = user
+          })
+          return { userProfilesMap: newProfilesMap }
+        })
+      },
+
+      /**
        * 从后端 API 获取推荐匹配
        */
       fetchRecommendations: async (params?: {
@@ -185,7 +205,7 @@ export const useUserStore = create<UserState>()(
           if (result.data && Array.isArray(result.data)) {
             console.log('匹配用户数量:', result.data.length)
 
-            // 保存完整的匹配结果（包含 bestMatch 和 allMatches）
+            // 保存完整的匹配结果（包含 matchDetail）
             const matchResults: MatchResult[] = result.data
 
             // 同时构建 User[] 列表以保持向后兼容
@@ -229,30 +249,65 @@ export const useUserStore = create<UserState>()(
       },
 
       /**
-       * 添加到想认识列表
+       * 添加到想认识列表（乐观更新）
        */
       addToWantToKnow: async (userId: string) => {
+        // 先更新本地状态（乐观更新）
+        set((state) => {
+          // 避免重复添加
+          if (state.wantToKnowMatches.some(u => u.id === userId)) {
+            return state
+          }
+
+          // 从多个来源查找用户
+          let user = state.potentialMatches.find(u => u.id === userId)
+          if (!user) {
+            user = state.userProfilesMap[userId]
+          }
+          if (!user) {
+            user = state.currentUser?.id === userId ? state.currentUser : undefined
+          }
+
+          if (!user) {
+            console.warn('[addToWantToKnow] 未找到用户:', userId)
+            return state
+          }
+
+          return {
+            wantToKnowMatches: [user, ...state.wantToKnowMatches]
+          }
+        })
+
+        // 然后调用 API
         try {
           const result = await matchesApi.performAction(userId, 'want_to_know')
 
           if (result.error) {
-            console.error('操作失败:', result.error)
+            // 409 表示已经存在，不算错误（状态已经正确）
+            if (result.error === '已经对此用户执行过操作') {
+              console.log('[addToWantToKnow] 用户已收藏，保持本地状态')
+              return true
+            }
+            // 其他错误需要回滚
+            console.error('[addToWantToKnow] API 操作失败:', result.error)
+            set((state) => ({
+              wantToKnowMatches: state.wantToKnowMatches.filter(u => u.id !== userId)
+            }))
             return false
-          }
-
-          // 更新本地状态
-          const { potentialMatches, wantToKnowMatches } = get()
-          const user = potentialMatches.find(u => u.id === userId)
-
-          if (user && !wantToKnowMatches.some(u => u.id === userId)) {
-            set({
-              wantToKnowMatches: [user, ...wantToKnowMatches]
-            })
           }
 
           return true
         } catch (error) {
-          console.error('操作错误:', error)
+          // 检查是否是 409 错误
+          if (error instanceof Error && error.message === '已经对此用户执行过操作') {
+            console.log('[addToWantToKnow] 用户已收藏（catch），保持本地状态')
+            return true
+          }
+          console.error('[addToWantToKnow] 操作错误:', error)
+          // 回滚：从列表中移除
+          set((state) => ({
+            wantToKnowMatches: state.wantToKnowMatches.filter(u => u.id !== userId)
+          }))
           return false
         }
       },

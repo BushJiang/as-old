@@ -1,3 +1,5 @@
+import type { MatchResult } from '@/lib/services/matching-service'
+
 export type Gender = 'male' | 'female' | 'other'
 
 export interface User {
@@ -52,7 +54,7 @@ export interface UserState {
     provide: string[]
   }) => Promise<boolean>
   fetchRecommendations: (params?: {
-    mode?: 'similar-interests' | 'mutual-needs' | 'comprehensive'
+    mode?: 'similar-interests' | 'mutual-needs' | 'mutual-provide' | 'exploratory-discovery' | 'comprehensive'
     limit?: number
     offset?: number
   }) => Promise<boolean>
@@ -64,6 +66,11 @@ export interface UserState {
   getWantToKnowUsers: () => User[]
   reinitializeUser: () => Promise<void>
   clearMatches: () => Promise<void>
+  setMatchesFromCache: (
+    mode: 'similar-interests' | 'mutual-needs' | 'mutual-provide' | 'exploratory-discovery',
+    users: User[],
+    matchResults: MatchResult[]
+  ) => void
 }
 
 export interface FilterStateStore {

@@ -41,6 +41,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证密码
+    if (!user.password) {
+      return NextResponse.json(
+        { error: "邮箱或密码错误" },
+        { status: 401 }
+      )
+    }
     const passwordMatch = await bcrypt.compare(password, user.password)
 
     if (!passwordMatch) {

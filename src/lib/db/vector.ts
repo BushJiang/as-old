@@ -8,7 +8,34 @@ import { sql } from "drizzle-orm"
  */
 
 /**
- * 余弦距离（Cosine Distance）
+ * JavaScript 版本：计算两个向量的余弦距离
+ * 范围：0（完全相同）到 2（完全相反）
+ *
+ * @param a 向量 A（1024维数组）
+ * @param b 向量 B（1024维数组）
+ * @returns 余弦距离
+ */
+export function cosineDistance(a: number[], b: number[]): number {
+  if (a.length !== b.length) {
+    throw new Error(`向量长度不匹配: ${a.length} vs ${b.length}`)
+  }
+
+  let dotProduct = 0
+  let normA = 0
+  let normB = 0
+
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
+  }
+
+  const cosineSimilarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+  return 1 - cosineSimilarity
+}
+
+/**
+ * SQL 版本：余弦距离（Cosine Distance）
  * 范围：0（完全相同）到 2（完全相反）
  * 操作符：<=>
  *

@@ -6,7 +6,9 @@
     "dev": "next dev --port 4000",
     "build": "next build",
     "start": "next start --port 4000",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "bun run scripts/seed-database-batch.ts",
+    "db:embeddings": "bun run scripts/generate-existing-embeddings-batch.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",

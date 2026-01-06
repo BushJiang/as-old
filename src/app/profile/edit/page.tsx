@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@/stores/user-store";
 import { embeddingsApi } from "@/lib/api-client";
+import type { User } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,

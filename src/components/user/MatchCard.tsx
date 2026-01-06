@@ -29,8 +29,12 @@ interface MatchCardProps {
   onWantToKnow?: (userId: string) => void;
   onNext?: () => void;
   isWantToKnow?: boolean;
-  // 新增：匹配详情（包含 bestMatch 和 allMatches）
+  // 新增：匹配详情（包含 matchDetail）
   matchedUser?: MatchResult;
+  // 🚀 预加载相关
+  preloadedCopy?: any;
+  preloadedUserIndex?: number | null;
+  currentUserIndex?: number;
 }
 
 export function MatchCard({
@@ -40,6 +44,9 @@ export function MatchCard({
   onNext,
   isWantToKnow = false,
   matchedUser,
+  preloadedCopy,
+  preloadedUserIndex,
+  currentUserIndex,
 }: MatchCardProps) {
   const { currentUser } = useUserStore()
   const [sandwichCopy, setSandwichCopy] = useState<SandwichCopy | null>(null);
@@ -49,26 +56,122 @@ export function MatchCard({
     let isMounted = true;
 
     // 只有当有匹配数据时才生成文案
-    if (!matchedUser?.bestMatch) {
+    if (!matchedUser?.matchDetail) {
       setIsLoading(false);
       return;
     }
+
+    // 🚀 检查是否有预加载数据可用
+    const hasPreloadedData = preloadedCopy && preloadedUserIndex === currentUserIndex;
+
+    if (hasPreloadedData) {
+      console.log('='.repeat(80));
+      console.log('🚀 使用预加载数据，无需等待 AI！');
+      console.log('='.repeat(80));
+      console.log('[预加载] currentUserIndex:', currentUserIndex);
+      console.log('[预加载] preloadedUserIndex:', preloadedUserIndex);
+      console.log('[预加载] 预加载的文案:', preloadedCopy);
+      console.log('='.repeat(80));
+
+      // 直接使用预加载数据，立即显示
+      if (isMounted) {
+        setSandwichCopy(preloadedCopy);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    console.log('='.repeat(80));
+    console.log('❌ 无预加载数据，需要调用 AI 生成');
+    console.log('='.repeat(80));
+    console.log('[AI生成] currentUserIndex:', currentUserIndex);
+    console.log('[AI生成] preloadedUserIndex:', preloadedUserIndex);
 
     setIsLoading(true);
     setSandwichCopy(null);
 
     // 准备 AI 输入数据
+    const matchDetail = matchedUser.matchDetail;
+
+    // 根据匹配类型选择不同的数据源
+    let highlightTagA = "";
+    let highlightTagB = "";
+    let contextTagsA: string[] = [];
+    let contextTagsB: string[] = [];
+
+    switch (matchType) {
+      case "similar-interests":
+        highlightTagA = matchDetail.myInterest;
+        highlightTagB = matchDetail.theirInterest;
+        contextTagsA = currentUser?.interests || [];
+        contextTagsB = user.interests || [];
+        break;
+
+      case "mutual-needs":
+        highlightTagA = matchDetail.myInterest;
+        highlightTagB = matchDetail.theirInterest;
+        contextTagsA = currentUser?.needs || [];
+        contextTagsB = user.provide || [];
+        break;
+
+      case "mutual-provide":
+        highlightTagA = matchDetail.myInterest;
+        highlightTagB = matchDetail.theirInterest;
+        contextTagsA = currentUser?.provide || [];
+        contextTagsB = user.needs || [];
+        break;
+
+      case "exploratory-discovery":
+        highlightTagA = matchDetail.myInterest;
+        highlightTagB = matchDetail.theirInterest;
+        contextTagsA = currentUser?.interests || [];
+        contextTagsB = user.interests || [];
+        break;
+    }
+
+    // 准备 AI 输入数据（新格式）
     const aiInput: MatchCopyInput = {
       matchType: matchType,
-      myInterests: currentUser?.interests || [],
-      theirInterests: user.interests || [],
+      myName: currentUser?.name,
       theirName: user.name,
-      matchDetails: matchedUser.allMatches || [matchedUser.bestMatch],
+      highlightTagA,
+      highlightTagB,
+      contextTagsA: contextTagsA.slice(0, 5),
+      contextTagsB: contextTagsB.slice(0, 5),
+      myBio: currentUser?.bio,
+      theirBio: user.bio,
+      myCity: currentUser?.city,
+      theirCity: user.city,
     };
+
+    console.log('='.repeat(80));
+    console.log('🤖 准备调用 AI 生成三明治文案');
+    console.log('='.repeat(80));
+    console.log('3. 发送给 AI 的完整输入数据（新格式）：');
+    console.log(JSON.stringify(aiInput, null, 2));
+    console.log('');
+    console.log('4. 匹配详情：');
+    console.log('   - highlightTagA:', aiInput.highlightTagA);
+    console.log('   - highlightTagB:', aiInput.highlightTagB);
+    console.log('   - contextTagsA:', aiInput.contextTagsA);
+    console.log('   - contextTagsB:', aiInput.contextTagsB);
+    console.log('='.repeat(80));
 
     // 调用 AI 生成文案
     generateMatchCopy(aiInput).then((data) => {
       if (isMounted) {
+        console.log('='.repeat(80));
+        console.log('✅ AI 生成完成，返回的三明治文案：');
+        console.log('='.repeat(80));
+        console.log('7. AI 返回的完整数据：');
+        console.log(JSON.stringify(data, null, 2));
+        console.log('');
+        console.log('8. 文案解析：');
+        console.log('   - hook:', data.hook);
+        console.log('   - bridge:', data.bridge);
+        console.log('   - cta:', data.cta);
+        console.log('   - bridge 中包含的匹配度（需要人工检查）');
+        console.log('='.repeat(80));
         setSandwichCopy(data);
         setIsLoading(false);
       }
@@ -77,7 +180,21 @@ export function MatchCard({
     return () => {
       isMounted = false;
     };
-  }, [user.id, matchedUser, user.name, user.interests, currentUser]);
+  }, [user.id, matchedUser?.matchDetail, user.name, user.interests, currentUser, preloadedCopy, preloadedUserIndex, currentUserIndex]);
+
+  // 添加日志：左侧卡片显示的匹配度
+  useEffect(() => {
+    if (sandwichCopy && matchedUser?.matchDetail) {
+      console.log('='.repeat(80));
+      console.log('🎨 左侧卡片即将渲染，显示的匹配度信息：');
+      console.log('='.repeat(80));
+      console.log('5. 左侧卡片显示的匹配度来源：');
+      console.log('   - 变量名: matchedUser.matchDetail.similarityPercent');
+      console.log('   - 原始值:', matchedUser.matchDetail.similarityPercent);
+      console.log('   - 显示值:', matchedUser.matchDetail.similarityPercent.toFixed(0) + '%');
+      console.log('='.repeat(80));
+    }
+  }, [sandwichCopy, matchedUser?.matchDetail]);
 
   const handleWantToKnow = () => {
     if (onWantToKnow) onWantToKnow(user.id);
@@ -106,7 +223,7 @@ export function MatchCard({
                 </p>
               </div>
             </div>
-          ) : sandwichCopy && matchedUser?.bestMatch ? (
+          ) : sandwichCopy && matchedUser?.matchDetail ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8">
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100/80 text-blue-600 text-xs font-bold tracking-wider uppercase">
@@ -123,12 +240,12 @@ export function MatchCard({
                 <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 border border-blue-200">
                   <span className="text-sm font-medium text-slate-600">匹配度</span>
                   <span className={`text-lg font-bold ${
-                    matchedUser.bestMatch.similarityPercent >= 70 ? 'text-green-600' :
-                    matchedUser.bestMatch.similarityPercent >= 30 ? 'text-blue-600' :
-                    matchedUser.bestMatch.similarityPercent >= 0 ? 'text-gray-600' :
+                    matchedUser.matchDetail.similarityPercent >= 70 ? 'text-green-600' :
+                    matchedUser.matchDetail.similarityPercent >= 30 ? 'text-blue-600' :
+                    matchedUser.matchDetail.similarityPercent >= 0 ? 'text-gray-600' :
                     'text-orange-500'
                   }`}>
-                    {matchedUser.bestMatch.similarityPercent.toFixed(0)}%
+                    {matchedUser.matchDetail.similarityPercent.toFixed(0)}%
                   </span>
                 </div>
               </div>
