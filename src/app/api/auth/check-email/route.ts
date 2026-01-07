@@ -4,6 +4,12 @@ import { db } from "@/lib/db"
 import { users } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 
+// 测试账号邮箱列表（用于数据库不可用时的开发测试）
+const TEST_EMAILS = [
+  'test@example.com',
+  'user@example.com',
+]
+
 // 查询参数验证 schema
 const checkEmailSchema = z.object({
   email: z.string().email("邮箱格式不正确"),
@@ -22,11 +28,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const { email } = validatedData.data
+
+    // 检查是否是测试账号
+    if (TEST_EMAILS.includes(email)) {
+      console.log('测试账号邮箱检查:', email)
+      return NextResponse.json(
+        { exists: true },
+        { status: 200 }
+      )
+    }
+
     // 检查邮箱是否已存在
     const [existingUser] = await db
       .select()
       .from(users)
-      .where(eq(users.email, validatedData.data.email))
+      .where(eq(users.email, email))
       .limit(1)
 
     return NextResponse.json(

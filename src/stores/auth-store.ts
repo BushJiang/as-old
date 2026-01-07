@@ -110,8 +110,19 @@ export const useAuthStore = create<AuthState>()(
             return false
           }
 
-          // 登录成功，重新获取会话
-          await get().initializeSession()
+          // 直接设置登录状态，不调用 initializeSession
+          // （避免 initializeSession 因为数据库无测试账号而覆盖登录状态）
+          if (result.user) {
+            set({
+              isAuthenticated: true,
+              user: {
+                id: result.user.id,
+                email: result.user.email,
+                hasCompletedProfile: false,
+              },
+            })
+          }
+
           return true
         } catch (error) {
           console.error('登录错误:', error)
