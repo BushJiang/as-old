@@ -373,7 +373,7 @@ export const MOCK_USERS: User[] = [
   // ========== 新增50位用户 ==========
   // 技术/编程类 (8位)
   {
-    id: '10000001-0000-0000-0000-000000000001',
+    id: 'a1b2c3d4-e5f6-4a5b-8c7d-0e9f1a2b3c4d1',
     name: '张伟',
     age: 27,
     gender: 'male',
@@ -385,7 +385,7 @@ export const MOCK_USERS: User[] = [
     provide: ['后端开发', '系统架构', '开源项目', '技术分享'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000002',
+    id: 'b2c3d4e5-f6a7-5b6c-9d8e-1f0a2b3c4d5e2',
     name: '李娜',
     age: 25,
     gender: 'female',
@@ -397,7 +397,7 @@ export const MOCK_USERS: User[] = [
     provide: ['前端开发', '用户体验', '性能优化', '代码审查'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000003',
+    id: 'c3d4e5f6-a7b8-6c7d-0e9f-2a3b4c5d6e7f3',
     name: '王浩',
     age: 29,
     gender: 'male',
@@ -409,7 +409,7 @@ export const MOCK_USERS: User[] = [
     provide: ['数据处理', '机器学习', '数据分析', 'Python编程'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000004',
+    id: 'd4e5f6a7-b8c9-7d8e-1f0a-3b4c5d6e7f8a4',
     name: '刘洋',
     age: 26,
     gender: 'male',
@@ -421,7 +421,7 @@ export const MOCK_USERS: User[] = [
     provide: ['全栈开发', '项目经验', '技术选型', '代码审查'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000005',
+    id: 'e5f6a7b8-c9d0-8e9f-2a1b-4c5d6e7f8a9b5',
     name: '陈静',
     age: 24,
     gender: 'female',
@@ -433,7 +433,7 @@ export const MOCK_USERS: User[] = [
     provide: ['AI算法', 'NLP技术', '论文解读', '机器学习'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000006',
+    id: 'f6a7b8c9-d0e1-9fa0-3b2c-5d6e7f8a9b0c6',
     name: '杨明',
     age: 30,
     gender: 'male',
@@ -445,7 +445,7 @@ export const MOCK_USERS: User[] = [
     provide: ['运维经验', '容器部署', 'CI/CD', '云架构'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000007',
+    id: 'a7b8c9d0-e1f2-0ab1-4c3d-6e7f8a9b0c1d7',
     name: '赵敏',
     age: 28,
     gender: 'female',
@@ -457,7 +457,7 @@ export const MOCK_USERS: User[] = [
     provide: ['移动开发', 'iOS', 'Android', '性能优化'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000008',
+    id: 'b8c9d0e1-f2a3-1bc2-5d4e-7f8a9b0c1d2e8',
     name: '孙强',
     age: 32,
     gender: 'male',
@@ -471,7 +471,7 @@ export const MOCK_USERS: User[] = [
 
   // 设计/艺术类 (8位)
   {
-    id: '10000001-0000-0000-0000-000000000009',
+    id: 'c9d0e1f2-a3b4-2cd3-6e5f-8a9b0c1d2e3f9',
     name: '周芳',
     age: 26,
     gender: 'female',
@@ -483,7 +483,7 @@ export const MOCK_USERS: User[] = [
     provide: ['平面设计', '品牌设计', '创意策划', '视觉设计'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000010',
+    id: 'd0e1f2a3-b4c5-3de4-7f6a-9b0c1d2e3f4a0',
     name: '吴磊',
     age: 27,
     gender: 'male',
@@ -495,7 +495,7 @@ export const MOCK_USERS: User[] = [
     provide: ['UI设计', '交互设计', '用户体验', '原型制作'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000011',
+    id: 'e1f2a3b4-c5d6-4ef5-8a7b-0c1d2e3f4a5b1',
     name: '郑洁',
     age: 25,
     gender: 'female',
@@ -507,7 +507,7 @@ export const MOCK_USERS: User[] = [
     provide: ['插画创作', '绘画教学', '创意设计', '艺术指导'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000012',
+    id: 'f2a3b4c5-d6e7-5fa6-9b8c-1d2e3f4a5b6c2',
     name: '冯超',
     age: 29,
     gender: 'male',
@@ -519,7 +519,7 @@ export const MOCK_USERS: User[] = [
     provide: ['用户研究', '可用性测试', '数据分析', 'UX策略'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000013',
+    id: 'a3b4c5d6-e7f8-6ab7-0c9d-2e3f4a5b6c7d3',
     name: '褚丽',
     age: 24,
     gender: 'female',
@@ -531,7 +531,7 @@ export const MOCK_USERS: User[] = [
     provide: ['品牌设计', '视觉识别', '摄影后期', '艺术指导'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000014',
+    id: 'b4c5d6e7-f8a9-7bc8-1d0e-3f4a5b6c7d8e4',
     name: '卫东',
     age: 31,
     gender: 'male',
@@ -543,7 +543,7 @@ export const MOCK_USERS: User[] = [
     provide: ['3D建模', '产品设计', '动画制作', '渲染技术'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000015',
+    id: 'c5d6e7f8-a9b0-8cd9-2e1f-4a5b6c7d8e9f5',
     name: '蒋云',
     age: 26,
     gender: 'female',
@@ -555,7 +555,7 @@ export const MOCK_USERS: User[] = [
     provide: ['字体设计', '排版设计', '视觉传达', '创意指导'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000016',
+    id: 'd6e7f8a9-b0c1-9de0-3f2a-5b6c7d8e9f0a6',
     name: '谢明',
     age: 28,
     gender: 'male',
@@ -569,7 +569,7 @@ export const MOCK_USERS: User[] = [
 
   // 运动/健康类 (7位)
   {
-    id: '10000001-0000-0000-0000-000000000017',
+    id: 'e7f8a9b0-c1d2-0ef1-4a3b-6c7d8e9f0a1b7',
     name: '韩冰',
     age: 27,
     gender: 'female',
@@ -581,7 +581,7 @@ export const MOCK_USERS: User[] = [
     provide: ['跑步指导', '训练计划', '比赛经验', '运动建议'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000018',
+    id: 'f8a9b0c1-d2e3-1f02-5b4c-7d8e9f0a1b2c8',
     name: '唐强',
     age: 30,
     gender: 'male',
@@ -593,7 +593,7 @@ export const MOCK_USERS: User[] = [
     provide: ['健身指导', '训练计划', '营养建议', '运动康复'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000019',
+    id: 'a9b0c1d2-e3f4-2013-6c5d-8e9f0a1b2c3d9',
     name: '董霞',
     age: 25,
     gender: 'female',
@@ -605,7 +605,7 @@ export const MOCK_USERS: User[] = [
     provide: ['瑜伽教学', '冥想指导', '身心调理', '健康建议'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000020',
+    id: 'b0c1d2e3-f4a5-3124-7d6e-9f0a1b2c3d4e0',
     name: '于刚',
     age: 32,
     gender: 'male',
@@ -617,7 +617,7 @@ export const MOCK_USERS: User[] = [
     provide: ['户外经验', '登山指导', '路线规划', '装备建议'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000021',
+    id: 'c1d2e3f4-a5b6-4235-8e7f-0a1b2c3d4e5f1',
     name: '袁琳',
     age: 26,
     gender: 'female',
@@ -629,7 +629,7 @@ export const MOCK_USERS: User[] = [
     provide: ['游泳指导', '健身建议', '健康咨询', '运动计划'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000022',
+    id: 'd2e3f4a5-b6c7-5346-9f0a-1b2c3d4e5f6a2',
     name: '邓涛',
     age: 29,
     gender: 'male',
@@ -641,7 +641,7 @@ export const MOCK_USERS: User[] = [
     provide: ['骑行经验', '路线规划', '旅行故事', '装备推荐'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000023',
+    id: 'e3f4a5b6-c7d8-6457-0a1b-2c3d4e5f6a7b3',
     name: '许婷',
     age: 24,
     gender: 'female',
@@ -655,7 +655,7 @@ export const MOCK_USERS: User[] = [
 
   // 阅读/文化类 (7位)
   {
-    id: '10000001-0000-0000-0000-000000000024',
+    id: 'f4a5b6c7-d8e9-7568-1b2c-3d4e5f6a7b8c4',
     name: '傅明',
     age: 31,
     gender: 'male',
@@ -667,7 +667,7 @@ export const MOCK_USERS: User[] = [
     provide: ['读书推荐', '文学评论', '写作指导', '读书会'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000025',
+    id: 'a5b6c7d8-e9f0-8679-2c3d-4e5f6a7b8c9d5',
     name: '沈芳',
     age: 27,
     gender: 'female',
@@ -679,7 +679,7 @@ export const MOCK_USERS: User[] = [
     provide: ['诗歌分享', '写作建议', '文学讨论', '创意写作'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000026',
+    id: 'b6c7d8e9-f0a1-978a-3d4e-5f6a7b8c9d0e6',
     name: '曾强',
     age: 33,
     gender: 'male',
@@ -691,7 +691,7 @@ export const MOCK_USERS: User[] = [
     provide: ['历史知识', '文物鉴赏', '文化讲解', '旅行推荐'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000027',
+    id: 'c7d8e9f0-a1b2-089b-4e5f-6a7b8c9d0e1f7',
     name: '彭丽',
     age: 25,
     gender: 'female',
@@ -703,7 +703,7 @@ export const MOCK_USERS: User[] = [
     provide: ['写作分享', '编辑建议', '创意写作', '文学评论'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000028',
+    id: 'd8e9f0a1-b2c3-19ac-5f6a-7b8c9d0e1f2a8',
     name: '吕伟',
     age: 28,
     gender: 'male',
@@ -715,7 +715,7 @@ export const MOCK_USERS: User[] = [
     provide: ['哲学知识', '思辨讨论', '人生思考', '阅读推荐'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000029',
+    id: 'e9f0a1b2-c3d4-2abd-6a7b-8c9d0e1f2a3b9',
     name: '苏静',
     age: 26,
     gender: 'female',
@@ -727,7 +727,7 @@ export const MOCK_USERS: User[] = [
     provide: ['语言教学', '翻译服务', '文化介绍', '学习经验'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000030',
+    id: 'f0a1b2c3-d4e5-3bce-7b8c-9d0e1f2a3b4c0',
     name: '叶明',
     age: 30,
     gender: 'male',
@@ -741,7 +741,7 @@ export const MOCK_USERS: User[] = [
 
   // 美食/生活类 (6位)
   {
-    id: '10000001-0000-0000-0000-000000000031',
+    id: 'a1b2c3d4-e5f6-4cdf-8c9d-0e1f2a3b4c5d1',
     name: '钱芳',
     age: 27,
     gender: 'female',
@@ -753,7 +753,7 @@ export const MOCK_USERS: User[] = [
     provide: ['烹饪教学', '食谱分享', '美食摄影', '餐厅推荐'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000032',
+    id: 'b2c3d4e5-f6a7-5de0-9d0e-1f2a3b4c5d6e2',
     name: '施浩',
     age: 29,
     gender: 'male',
@@ -765,7 +765,7 @@ export const MOCK_USERS: User[] = [
     provide: ['咖啡制作', '冲煮技巧', '豆子推荐', '咖啡知识'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000033',
+    id: 'c3d4e5f6-a7b8-6ef1-0e1f-2a3b4c5d6e7f3',
     name: '严洁',
     age: 25,
     gender: 'female',
@@ -777,7 +777,7 @@ export const MOCK_USERS: User[] = [
     provide: ['甜品制作', '烘焙教学', '装饰技巧', '食谱开发'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000034',
+    id: 'd4e5f6a7-b8c9-7f02-1f2a-3b4c5d6e7f8a4',
     name: '华强',
     age: 32,
     gender: 'male',
@@ -789,7 +789,7 @@ export const MOCK_USERS: User[] = [
     provide: ['美食点评', '餐厅推荐', '探店经验', '美食指南'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000035',
+    id: 'e5f6a7b8-c9d0-8013-2a3b-4c5d6e7f8a9b5',
     name: '金丽',
     age: 26,
     gender: 'female',
@@ -801,7 +801,7 @@ export const MOCK_USERS: User[] = [
     provide: ['营养咨询', '健康食谱', '饮食建议', '营养计划'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000036',
+    id: 'f6a7b8c9-d0e1-9124-3b4c-5d6e7f8a9b0c6',
     name: '魏明',
     age: 28,
     gender: 'male',
@@ -815,7 +815,7 @@ export const MOCK_USERS: User[] = [
 
   // 音乐/娱乐类 (6位)
   {
-    id: '10000001-0000-0000-0000-000000000037',
+    id: 'a7b8c9d0-e1f2-0235-4c5d-6e7f8a9b0c1d7',
     name: '陶芳',
     age: 24,
     gender: 'female',
@@ -827,7 +827,7 @@ export const MOCK_USERS: User[] = [
     provide: ['音乐分享', '乐器教学', '创作讨论', '乐理知识'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000038',
+    id: 'b8c9d0e1-f2a3-1346-5d6e-7f8a9b0c1d2e8',
     name: '姜浩',
     age: 27,
     gender: 'male',
@@ -839,7 +839,7 @@ export const MOCK_USERS: User[] = [
     provide: ['电影推荐', '影评写作', '电影分析', '观影指南'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000039',
+    id: 'c9d0e1f2-a3b4-2457-6e7f-8a9b0c1d2e3f9',
     name: '韦静',
     age: 25,
     gender: 'female',
@@ -851,7 +851,7 @@ export const MOCK_USERS: User[] = [
     provide: ['游戏推荐', '攻略分享', '游戏评论', '玩家社区'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000040',
+    id: 'd0e1f2a3-b4c5-3568-7f8a-9b0c1d2e3f4a0',
     name: '白云',
     age: 29,
     gender: 'male',
@@ -863,7 +863,7 @@ export const MOCK_USERS: User[] = [
     provide: ['摄影技巧', '后期处理', '构图指导', '器材推荐'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000041',
+    id: 'e1f2a3b4-c5d6-4679-8a9b-0c1d2e3f4a5b1',
     name: '徐明',
     age: 31,
     gender: 'male',
@@ -875,7 +875,7 @@ export const MOCK_USERS: User[] = [
     provide: ['戏剧知识', '表演指导', '剧本分析', '演出推荐'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000042',
+    id: 'f2a3b4c5-d6e7-578a-9b8c-1d2e3f4a5b6c2',
     name: '薛丽',
     age: 26,
     gender: 'female',
@@ -889,7 +889,7 @@ export const MOCK_USERS: User[] = [
 
   // 旅行/探索类 (4位)
   {
-    id: '10000001-0000-0000-0000-000000000043',
+    id: 'a3b4c5d6-e7f8-689b-0c9d-2e3f4a5b6c7d3',
     name: '阎强',
     age: 30,
     gender: 'male',
@@ -901,7 +901,7 @@ export const MOCK_USERS: User[] = [
     provide: ['旅行经验', '摄影指导', '路线规划', '旅行故事'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000044',
+    id: 'b4c5d6e7-f8a9-79ac-1d0e-3f4a5b6c7d8e4',
     name: '林芳',
     age: 27,
     gender: 'female',
@@ -913,7 +913,7 @@ export const MOCK_USERS: User[] = [
     provide: ['背包旅行', '独行经验', '小众路线', '旅行攻略'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000045',
+    id: 'c5d6e7f8-a9b0-8abd-2e1f-4a5b6c7d8e9f5',
     name: '霍浩',
     age: 28,
     gender: 'male',
@@ -925,7 +925,7 @@ export const MOCK_USERS: User[] = [
     provide: ['城市指南', '隐秘景点', '建筑摄影', '探索经验'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000046',
+    id: 'd6e7f8a9-b0c1-9bce-3f2a-5b6c7d8e9f0a6',
     name: '虞静',
     age: 25,
     gender: 'female',
@@ -939,7 +939,7 @@ export const MOCK_USERS: User[] = [
 
   // 教育/成长类 (4位)
   {
-    id: '10000001-0000-0000-0000-000000000047',
+    id: 'e7f8a9b0-c1d2-0cdf-4a3b-6c7d8e9f0a1b7',
     name: '罗明',
     age: 33,
     gender: 'male',
@@ -951,7 +951,7 @@ export const MOCK_USERS: User[] = [
     provide: ['教学经验', '学术指导', '科研方法', '职业建议'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000048',
+    id: 'f8a9b0c1-d2e3-1de0-5b4c-7d8e9f0a1b2c8',
     name: '毕芳',
     age: 29,
     gender: 'female',
@@ -963,7 +963,7 @@ export const MOCK_USERS: User[] = [
     provide: ['心理咨询', '情绪疏导', '心理健康', '成长指导'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000049',
+    id: 'a9b0c1d2-e3f4-2ef1-6c5d-8e9f0a1b2c3d9',
     name: '郝强',
     age: 31,
     gender: 'male',
@@ -975,7 +975,7 @@ export const MOCK_USERS: User[] = [
     provide: ['职业规划', '求职指导', '面试技巧', '职业转型'],
   },
   {
-    id: '10000001-0000-0000-0000-000000000050',
+    id: 'b0c1d2e3-f4a5-3f02-7d6e-9f0a1b2c3d4e0',
     name: '常丽',
     age: 26,
     gender: 'female',

@@ -166,7 +166,7 @@ function calculateMatch(
     }
 
     case 'mutual-needs': {
-      // A 的需求 vs B 的提供
+      // 我的需求 vs 他们的提供（找能帮助我的人）
       const needProvideSims: number[] = []
       for (const needEmb of userA.needEmbeddings) {
         for (const provideEmb of userB.provideEmbeddings) {
@@ -174,15 +174,7 @@ function calculateMatch(
         }
       }
 
-      // B 的需求 vs A 的提供
-      const provideNeedSims: number[] = []
-      for (const provideEmb of userA.provideEmbeddings) {
-        for (const needEmb of userB.needEmbeddings) {
-          provideNeedSims.push(cosineSimilarity(provideEmb, needEmb))
-        }
-      }
-
-      similarities = [...needProvideSims, ...provideNeedSims]
+      similarities = needProvideSims
 
       if (userA.needs.length > 0 && userB.provide.length > 0) {
         myInterest = userA.needs[0]
@@ -192,14 +184,7 @@ function calculateMatch(
     }
 
     case 'mutual-provide': {
-      // 与 mutual-needs 相同的计算方式
-      const needProvideSims: number[] = []
-      for (const needEmb of userA.needEmbeddings) {
-        for (const provideEmb of userB.provideEmbeddings) {
-          needProvideSims.push(cosineSimilarity(needEmb, provideEmb))
-        }
-      }
-
+      // 我的提供 vs 他们的需求（我能帮助谁）
       const provideNeedSims: number[] = []
       for (const provideEmb of userA.provideEmbeddings) {
         for (const needEmb of userB.needEmbeddings) {
@@ -207,7 +192,7 @@ function calculateMatch(
         }
       }
 
-      similarities = [...needProvideSims, ...provideNeedSims]
+      similarities = provideNeedSims
 
       if (userA.provide.length > 0 && userB.needs.length > 0) {
         myInterest = userA.provide[0]
