@@ -57,3 +57,4 @@ chats/
 .42plugin/
 embedding-server/
 embedding-service/
+.vercel

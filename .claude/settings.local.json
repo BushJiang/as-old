@@ -1,4 +1,14 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(bun run:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(timeout 30 git push:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel:*)",
+      "Bash(cat:*)"
+    ]
+  },
   "hooks": {},
   "skills": {
     "enabled": true,
@@ -18,10 +28,5 @@
   },
   "mcp": {
     "enabled": true
-  },
-  "permissions": {
-    "allow": [
-      "Bash(bun run:*)"
-    ]
   }
 }

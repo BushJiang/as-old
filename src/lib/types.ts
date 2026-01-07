@@ -1,5 +1,6 @@
 import type { MatchResult } from '@/lib/services/matching-service'
 
+export type { MatchResult }
 export type Gender = 'male' | 'female' | 'other'
 
 export interface User {
