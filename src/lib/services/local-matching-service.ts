@@ -128,8 +128,7 @@ function averageVectors(vectors: number[][]): number[] {
 // 3. 匹配算法
 // ============================================================================
 
-interface UserWithEmbeddings {
-  user: User
+interface UserWithEmbeddings extends User {
   interestEmbeddings: number[][]
   needEmbeddings: number[][]
   provideEmbeddings: number[][]
@@ -312,7 +311,7 @@ export async function matchUsersLocal(
   console.log('\n[2/3] 生成候选用户的嵌入向量并计算匹配度...')
 
   const userWithEmbeddings: UserWithEmbeddings = {
-    user: currentUser,
+    ...currentUser,
     ...currentUserEmbeddings,
   }
 
@@ -331,7 +330,7 @@ export async function matchUsersLocal(
     const candidateEmbeddings = await generateUserEmbeddings(candidate)
 
     const candidateWithEmbeddings: UserWithEmbeddings = {
-      user: candidate,
+      ...candidate,
       ...candidateEmbeddings,
     }
 
@@ -369,6 +368,7 @@ export async function matchUsersLocal(
       similarityScore: match.score,
       similarityPercent: Math.round(match.score * 100),
     },
+    similarity: match.score,
   }))
 
   console.log('\n' + '='.repeat(80))
