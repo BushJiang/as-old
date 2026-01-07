@@ -38,3 +38,22 @@ __pycache__/
 
 # User custom
 source/
+
+# Data & Cache
+data/
+scripts/
+drizzle/
+*.tsbuildinfo
+
+# Documentation & Notes
+docs/
+notes/
+chats/
+
+# Development Tools
+.claude/
+.zed/
+.42cog/
+.42plugin/
+embedding-server/
+embedding-service/
