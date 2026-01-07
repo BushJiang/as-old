@@ -52,9 +52,9 @@ interface OfflineCacheData {
 
 // 配置
 const CACHE_FILE_PATH = join(process.cwd(), 'data', 'embeddings-cache.json')
-const BATCH_SIZE = 2
-const API_DELAY = 500
-const DELAY_BETWEEN_BATCHES = 3000
+const BATCH_SIZE = 10          // 每批 10 个文本（原 2，提速 5x）
+const API_DELAY = 50           // 每个请求间隔 50ms（原 500ms，提速 10x）
+const DELAY_BETWEEN_BATCHES = 1000  // 批次间延迟 1 秒（原 3 秒，提速 3x）
 const MAX_RETRIES = 3
 const RETRY_DELAY = 2000
 
