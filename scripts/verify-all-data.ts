@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { users, userProfiles, userEmbeddings } from '@/lib/db/schema'
-import { MOCK_USERS } from '@/data/mock/users'
+import { MOCK_USERS } from '../data/mock/users'
 
 async function verifyData() {
   console.log('=== 数据验证报告 ===\n')
