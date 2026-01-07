@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, Sparkles, Quote } from "lucide-react";
+import { Heart, Sparkles, Quote, ChevronLeft, ChevronRight } from "lucide-react";
 import type { User } from "@/lib/types";
 import { UserInfoPanel } from "@/components/user/UserInfoPanel";
 import type { MatchResult } from "@/lib/services/matching-service";
@@ -28,6 +28,7 @@ interface MatchCardProps {
   matchType?: MatchType;
   onWantToKnow?: (userId: string) => void;
   onNext?: () => void;
+  onPrevious?: () => void;
   isWantToKnow?: boolean;
   // 新增：匹配详情（包含 matchDetail）
   matchedUser?: MatchResult;
@@ -42,6 +43,7 @@ export function MatchCard({
   matchType = "similar-interests",
   onWantToKnow,
   onNext,
+  onPrevious,
   isWantToKnow = false,
   matchedUser,
   preloadedCopy,
@@ -279,6 +281,20 @@ export function MatchCard({
           {/* 底部按钮 */}
           <div className="flex gap-3">
             <Button
+              variant="outline"
+              className="flex-1 text-sm h-10 border-gray-200 text-gray-600"
+              onClick={onPrevious}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 text-sm h-10 border-gray-200 text-gray-600"
+              onClick={onNext}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <Button
               className={`flex-1 text-sm h-10 ${
                 isWantToKnow
                   ? "bg-red-50 text-red-500 hover:bg-red-100"
@@ -287,16 +303,9 @@ export function MatchCard({
               onClick={handleWantToKnow}
             >
               <Heart
-                className={`w-4 h-4 mr-1.5 ${isWantToKnow ? "fill-current" : ""}`}
+                className={`w-4 h-4 ${isWantToKnow ? "fill-current" : ""}`}
               />
               {isWantToKnow ? "已收藏" : "收藏"}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 text-sm h-10 border-gray-200 text-gray-600"
-              onClick={onNext}
-            >
-              下一位
             </Button>
           </div>
         </UserInfoPanel>

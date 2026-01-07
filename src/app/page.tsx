@@ -414,6 +414,12 @@ export default function Home() {
     toggleWantToKnow(userId);
   };
 
+  // 点击"上一位"按钮
+  const handlePrevious = () => {
+    setUserIndex((prev) => Math.max(0, prev - 1));
+    setCardKey((prev) => prev + 1);
+  };
+
   // 点击"下一位"按钮
   const handleNext = () => {
     setUserIndex((prev) => prev + 1);
@@ -605,6 +611,7 @@ export default function Home() {
                 preloadedUserIndex={preloadedUserIndex}
                 currentUserIndex={userIndex}
                 onWantToKnow={handleWantToKnow}
+                onPrevious={handlePrevious}
                 onNext={handleNext}
                 isWantToKnow={
                   matchedUser ? isWantToKnow(matchedUser.id) : false

@@ -1287,6 +1287,59 @@ NextAuth 的 `users` 表和应用的 `user_profiles` 表都有 `name` 字段，�
 
 ---
 
+### 登录成功后立即调用 initializeSession 导致状态被覆盖
+
+错误做法：
+```typescript
+login: async (email: string, password: string) => {
+  const response = await fetch('/api/auth/signin', { ... })
+  const result = await response.json()
+
+  if (!response.ok) {
+    return false
+  }
+
+  // 登录成功，重新获取会话
+  await get().initializeSession()
+  return true
+}
+```
+
+正确做法：
+```typescript
+login: async (email: string, password: string) => {
+  const response = await fetch('/api/auth/signin', { ... })
+  const result = await response.json()
+
+  if (!response.ok) {
+    return false
+  }
+
+  // 直接设置登录状态，不调用 initializeSession
+  // （避免 initializeSession 因为数据库无测试账号而覆盖登录状态）
+  if (result.user) {
+    set({
+      isAuthenticated: true,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        hasCompletedProfile: false,
+      },
+    })
+  }
+
+  return true
+}
+```
+
+原因：
+登录成功后立即调用 `initializeSession`，会调用 `/api/auth/session` 查询数据库验证会话。如果数据库中没有测试账号（Mock 模式），`initializeSession` 会将状态设置为未登录，覆盖刚刚设置的登录状态。应该直接从登录 API 响应设置状态，避免额外的服务器验证覆盖有效的客户端状态。
+
+相关文件：
+- `src/stores/auth-store.ts` - login 函数
+
+---
+
 ## 更新日志
 
 - 2025-01-03：添加前端开发踩坑总结，包括 CSS 布局、动画、组件设计等问题
@@ -1294,6 +1347,7 @@ NextAuth 的 `users` 表和应用的 `user_profiles` 表都有 `name` 字段，�
 - 2025-01-04：添加邮箱验证码功能踩坑总结，包括 Resend 集成、域名验证等问题
 - 2025-01-04：添加头像上传和资料更新踩坑总结，包括字段名不一致、枚举值格式、Next.js Image 限制、文件缓存、认证系统迁移、Zod 验证等问题
 - 2025-01-04：添加多表数据同步踩坑总结，users 表和 user_profiles 表 name 字段不同步问题
+- 2025-01-07：添加测试账号登录状态保持踩坑总结，login 函数调用 initializeSession 导致状态被覆盖
 
 ---
 
